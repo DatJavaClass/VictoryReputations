@@ -1,4 +1,4 @@
-import { createReputation, integer, validateReputation } from "./core.js";
+import { createReputation, defaultTierUnits, integer, validateReputation } from "./core.js";
 import { MODULE, ReputationStore } from "./store.js";
 import { Runtime } from "./runtime.js";
 import { getAdapter } from "./adapters.js";
@@ -134,7 +134,7 @@ export class ReputationEditor extends FormApplication {
       const { action, id, kind } = event.currentTarget.dataset, rep = this.object;
       switch (action) {
         case "add-tier":
-          if (rep.tiers.length < 10) rep.tiers.push({ id: foundry.utils.randomID(), name: `Tier ${rep.tiers.length + 1}`, units: 100 });
+          if (rep.tiers.length < 10) rep.tiers.push({ id: foundry.utils.randomID(), name: `Tier ${rep.tiers.length + 1}`, units: defaultTierUnits(rep.tiers.length) });
           break;
         case "remove-tier": {
           if (rep.tiers.length <= 1) break;

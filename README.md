@@ -30,6 +30,8 @@ Open **Actors > Reputations**.
 | Monitor / Modify Standing | Apply Change adjusts scores. Restore Inventory handles interrupted transactions. Add Reputations Ledger to Character reuses an existing ledger. |
 | System Integration | Save Integration stores inventory and currency fields. |
 
+New tiers default to 50, 100, 200, 400, 800, 1,600, 3,200, 6,400, 12,800, and 25,600 units. Each value is the total reputation needed to unlock that tier. At 200, you reach Tier 3. Lose 10 and return to Tier 2. Custom thresholds remain editable. Existing reputations migrate to equivalent totals.
+
 Basic Info also controls opposing reputations, negative standing, hostility, party sharing, and compressed player displays. Rewards can be earned once or again when enabled.
 
 ## Player pages and buttons

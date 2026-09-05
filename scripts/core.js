@@ -1,4 +1,18 @@
-export const LIMITS = Object.freeze({ tiers: 10, threshold: 9999, valueMin: -1000, valueMax: 9999, floor: -1000 });
+export const LIMITS = Object.freeze({ tiers: 10, threshold: 999999, valueMin: -1000, valueMax: 9999, floor: -1000 });
+
+export function defaultTierUnits(index) {
+  return 50 * 2 ** index;
+}
+
+export function migrateTiers(source) {
+  if (source.tierBasis === "total" || !source.tiers) return source;
+  let total = 0;
+  return { ...source, tierBasis: "total", tiers: source.tiers.map(tier => {
+    const units = total;
+    total += tier.units;
+    return { ...tier, units };
+  }) };
+}
 
 export function integer(value, min, max, label) {
   if (!Number.isSafeInteger(value) || value < min || value > max) throw new Error(`${label} must be an integer between ${min} and ${max}.`);
@@ -19,14 +33,14 @@ function unique(rows, label) {
 
 export function createReputation(id, name, actorUuid = null) {
   return validateReputation({ id, name, kind: actorUuid ? "individual" : "faction", actorUuid,
-    tiers: [{ id: "tier-1", name: "Tier 1", units: 100 }], compressTiers: false,
+    tierBasis: "total", tiers: [{ id: "tier-1", name: "Tier 1", units: defaultTierUnits(0) }], compressTiers: false,
     conditional: true, negative: false, hostile: false, party: false,
     proxies: actorUuid ? [{ id: actorUuid, actorUuid, message: "" }] : [], items: [], currencies: [], rewards: [],
     opposing: [], members: [], repeatRewards: false });
 }
 
 export function validateReputation(source) {
-  const rep = structuredClone(source);
+  const rep = structuredClone(migrateTiers(source));
   rep.opposing ??= [];
   rep.members ??= [];
   rep.repeatRewards ??= false;
@@ -45,9 +59,12 @@ export function validateReputation(source) {
 
   unique(rep.tiers, "Tier");
   integer(rep.tiers.length, 1, LIMITS.tiers, "Tier count");
+  let previous = -1;
   for (const tier of rep.tiers) {
     identifier(tier.name, "Tier name");
-    integer(tier.units, 1, LIMITS.threshold, "Tier units");
+    integer(tier.units, 0, LIMITS.threshold, "Tier units");
+    if (tier.units <= previous) throw new Error("Tier thresholds must increase with each tier.");
+    previous = tier.units;
   }
 
   unique(rep.proxies, "Proxy");
@@ -116,16 +133,8 @@ export function quoteDonation(reputation, selection, inventory) {
 }
 
 export function tierProgress(rep, units) {
-  let remaining = units, completed = 0;
-  for (const tier of rep.tiers) {
-    if (remaining < tier.units) break;
-    remaining -= tier.units;
-    completed++;
-  }
-
-  const index = Math.min(completed, rep.tiers.length - 1), max = rep.tiers[index].units;
-  const earned = units < 0 ? [] : rep.tiers.slice(0, index + 1).map(tier => tier.id);
-  return { tier: index + 1, current: completed === rep.tiers.length ? max : remaining, max, earned };
+  const tiers = migrateTiers(rep).tiers, earned = tiers.filter(tier => units >= 0 && units >= tier.units).map(tier => tier.id);
+  return { tier: earned.length, current: units, max: tiers[Math.min(earned.length, tiers.length - 1)].units, earned };
 }
 
 export function standingKey(rep, actorUuid) {

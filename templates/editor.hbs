@@ -11,7 +11,7 @@
         {{#each rep.tiers}}
         <div class="vr-row">
           <input name="tierName.{{@index}}" value="{{name}}" aria-label="Tier name" required>
-          <label>Units to complete tier <input type="number" name="tierUnits.{{@index}}" value="{{units}}" min="1" max="9999" step="1" required></label>
+          <label>Total reputation to reach tier <input type="number" name="tierUnits.{{@index}}" value="{{units}}" min="0" max="999999" step="1" required></label>
         </div>
         {{/each}}
         <div class="vr-actions">

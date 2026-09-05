@@ -1,4 +1,4 @@
-import { validateReputation } from "./core.js";
+import { migrateTiers, validateReputation } from "./core.js";
 
 export const MODULE = "victory-reputations";
 
@@ -13,7 +13,7 @@ export class ReputationStore {
   static read() {
     const state = structuredClone(game.settings.get(MODULE, "definitions"));
     state.partyMembers ??= [...new Set(state.reputations.flatMap(rep => rep.members ?? []))];
-    state.reputations = state.reputations.map(rep => ({ ...rep, members: [...state.partyMembers] }));
+    state.reputations = state.reputations.map(rep => ({ ...migrateTiers(rep), members: [...state.partyMembers] }));
     return state;
   }
 

@@ -2,7 +2,7 @@
   "id": "victory-reputations",
   "title": "Victory Reputations",
   "description": "Faction and NPC reputation with proxies, donations, opposing standings, party sharing, and tier rewards.",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "authors": [
     {
       "name": "DatJavaClass",
@@ -22,6 +22,6 @@
     "styles/player.css"
   ],
   "manifest": "https://github.com/DatJavaClass/VictoryReputations/releases/latest/download/module.json",
-  "download": "https://github.com/DatJavaClass/VictoryReputations/releases/download/v1.0.1/victory-reputations-1.0.1.zip",
+  "download": "https://github.com/DatJavaClass/VictoryReputations/releases/download/v1.0.2/victory-reputations-1.0.2.zip",
   "url": "https://github.com/DatJavaClass/VictoryReputations"
 }
