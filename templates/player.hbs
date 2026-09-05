@@ -1,0 +1,55 @@
+<section class="vr-player-body">
+  {{#if error}}
+  <p role="alert">{{error}}</p>
+  <button type="button" data-action="close">Close</button>
+  {{else}}
+  <header><h2>{{name}}</h2><p>{{actorName}}</p></header>
+  {{#if standing}}
+  <p class="vr-standing"><strong>Current reputation:</strong> {{#if standing.compressTiers}}{{standing.units}}{{else}}{{standing.current}}/{{standing.max}} | Tier {{standing.tier}}{{/if}}{{#if standing.hostile}} <strong>(Hostile)</strong>{{/if}}</p>
+  {{/if}}
+  {{#if donating}}
+  <p>Choose goods to surrender. Quantities show selected / owned.</p>
+  <div class="vr-goods">
+    <h3>Items</h3>
+    <div class="vr-item-columns">
+      {{#each items}}
+      <div class="vr-donation-row {{#if empty}}vr-empty{{/if}}" data-stock="{{id}}">
+        <div class="vr-quantity">
+          <button type="button" data-step="-1" aria-label="Decrease {{name}}" {{#if empty}}disabled{{/if}}>&larr;</button>
+          <input type="number" data-quantity value="{{quantity}}" min="0" max="{{owned}}" step="1" aria-label="Quantity of {{name}} to surrender" {{#if empty}}disabled{{/if}}>
+          <span>/ {{owned}}</span>
+          <button type="button" data-step="1" aria-label="Increase {{name}}" {{#if empty}}disabled{{/if}}>&rarr;</button>
+        </div>
+        <div class="vr-good-name">{{name}}<small><span data-remaining>{{remaining}}</span> remaining</small></div>
+      </div>
+      {{else}}<p>No items accepted.</p>{{/each}}
+    </div>
+    <h3>Currencies</h3>
+    <div class="vr-item-columns">
+      {{#each currencies}}
+      <div class="vr-donation-row {{#if empty}}vr-empty{{/if}}" data-stock="{{id}}">
+        <div class="vr-quantity">
+          <button type="button" data-step="-1" aria-label="Decrease {{name}}" {{#if empty}}disabled{{/if}}>&larr;</button>
+          <input type="number" data-quantity value="{{quantity}}" min="0" max="{{owned}}" step="1" aria-label="Quantity of {{name}} to surrender" {{#if empty}}disabled{{/if}}>
+          <span>/ {{owned}}</span>
+          <button type="button" data-step="1" aria-label="Increase {{name}}" {{#if empty}}disabled{{/if}}>&rarr;</button>
+        </div>
+        <div class="vr-good-name">{{name}}<small><span data-remaining>{{remaining}}</span> remaining</small></div>
+      </div>
+      {{else}}<p>No currencies accepted.</p>{{/each}}
+    </div>
+  </div>
+  <p role="status" aria-live="polite" data-status></p>
+  <footer class="vr-player-actions">
+    <button type="button" data-action="submit" {{#unless hasSelection}}disabled{{/unless}}>Surrender Goods</button>
+    <button type="button" data-action="close">Changed Mind</button>
+  </footer>
+  {{else}}
+  <div class="vr-proxy-message">{{{message}}}</div>
+  <footer class="vr-player-actions">
+    <button type="button" data-action="donate">I'd like to increase my standing</button>
+    <button type="button" data-action="close">Not now</button>
+  </footer>
+  {{/if}}
+  {{/if}}
+</section>

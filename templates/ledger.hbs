@@ -1,0 +1,21 @@
+<section class="vr-player-body">
+  {{#if error}}
+  <p role="alert">{{error}}</p>
+  {{else}}
+  <h2>{{actorName}}: Reputations</h2>
+  <p>A living ledger of your standing in the world. Your story keeps changing. So does this book.</p>
+  <div class="vr-ledger-list">
+    {{#each reputations}}
+    <div class="vr-ledger-row">
+      <strong>{{name}}</strong>
+      <span>{{#if compressTiers}}{{units}}{{else}}{{current}}/{{max}} | Tier {{tier}}{{/if}}{{#if hostile}} (Hostile){{/if}}</span>
+    </div>
+    {{else}}<p>No reputations recorded.</p>{{/each}}
+  </div>
+  {{/if}}
+  <footer class="vr-player-actions">
+    {{#unless error}}<button type="button" data-action="install">Add Reputations to Character</button>{{/unless}}
+    <button type="button" data-action="refresh">Refresh</button>
+    <button type="button" data-action="close">Close</button>
+  </footer>
+</section>

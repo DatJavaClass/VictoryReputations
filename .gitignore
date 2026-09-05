@@ -1,0 +1,6 @@
+dist/
+node_modules/
+*.log
+Spec.md
+test/
+tests/

@@ -1,0 +1,18 @@
+.victory-reputations .vr-layout { display: flex; flex-direction: column; height: 100%; min-height: 0; gap: 10px; }
+.victory-reputations .vr-body { flex: 1; min-height: 0; overflow-y: auto; }
+.victory-reputations .vr-actions, .victory-reputations .vr-row { display: flex; align-items: center; gap: 8px; }
+.victory-reputations .vr-row { margin: 8px 0; }
+.victory-reputations .vr-row button { width: auto; flex: 0 0 auto; }
+.victory-reputations .vr-row input[type="number"] { width: 85px; }
+.victory-reputations .vr-grow { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.victory-reputations small { display: block; opacity: .75; }
+.victory-reputations .vr-drop { border: 2px dashed var(--color-border-light-primary, #999); padding: 16px; margin: 10px 0; text-align: center; }
+.victory-reputations .vr-field { display: flex; align-items: center; gap: 12px; margin: 10px 0; }
+.victory-reputations .vr-field input { flex: 1; }
+.victory-reputations .vr-options { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 12px 0; }
+.victory-reputations .vr-options label { display: flex; align-items: center; }
+.victory-reputations .vr-entry { display: block; width: 100%; text-align: left; padding: 10px; margin-bottom: 6px; }
+.victory-reputations .vr-entry.selected { outline: 2px solid var(--color-border-highlight, #a44); outline-offset: -2px; }
+.victory-reputations .vr-empty { text-align: center; padding: 30px 0; }
+.victory-reputations .vr-message .editor { height: 100%; min-height: 220px; }
+.vr-open { flex: 0 0 100%; }

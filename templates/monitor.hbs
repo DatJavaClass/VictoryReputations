@@ -1,0 +1,8 @@
+<form class="vr-layout">
+  <select name="actor" aria-label="Character">{{#each actors}}<option value="{{id}}" {{#if selected}}selected{{/if}}>{{name}}</option>{{/each}}</select>
+  <div class="vr-body">
+    {{#each rows}}<div class="vr-row"><span class="vr-grow">{{name}}: {{units}} {{#if hostile}}(Hostile){{/if}}</span><input type="number" value="0" step="1" min="-999999" max="999999" data-delta="{{id}}" aria-label="Standing change"><button type="button" data-action="adjust" data-id="{{id}}">Apply Change</button></div>{{/each}}
+    {{#each recovery}}<div class="vr-drop"><p>Interrupted transaction: {{id}}</p><p>{{actorUuid}}</p><button type="button" data-action="recover" data-id="{{id}}">Restore Inventory</button></div>{{/each}}
+  </div>
+  <button type="button" data-action="ledger">Add Reputations Ledger to Character</button>
+</form>

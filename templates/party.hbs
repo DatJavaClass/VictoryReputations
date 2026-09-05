@@ -1,0 +1,8 @@
+<form class="vr-layout">
+  <p>Define the party once. Every reputation with Party Reputation enabled uses this roster.</p>
+  <div class="vr-drop" data-drop="party">Drag party characters from Actors here</div>
+  <div class="vr-body">
+    {{#each members}}<div class="vr-row"><span class="vr-grow">{{name}}</span><button type="button" data-remove="{{uuid}}">Remove</button></div>{{else}}<p>No party characters configured yet.</p>{{/each}}
+  </div>
+  <button type="submit">Save Player Party</button>
+</form>

@@ -1,0 +1,16 @@
+<section class="vr-layout">
+  <div class="vr-body vr-list">
+    {{#each reputations}}
+    <button type="button" data-reputation="{{id}}" class="vr-entry {{#if selected}}selected{{/if}}" aria-pressed="{{selected}}">{{name}} <small>{{kind}}</small></button>
+    {{else}}
+    <p class="vr-empty">No Reputations Detected...</p>
+    {{/each}}
+  </div>
+  <footer class="vr-actions">
+    <button type="button" data-action="create">Create New</button>
+    <button type="button" data-action="edit" {{#unless selected}}disabled{{/unless}}>Edit</button>
+    <button type="button" data-action="delete" {{#unless selected}}disabled{{/unless}}>Delete</button>
+  </footer>
+  <footer class="vr-actions"><button type="button" data-action="monitor">Monitor / Modify Standing</button><button type="button" data-action="system">System Integration</button></footer>
+  <button type="button" data-action="party">Player Party</button>
+</section>

@@ -1,0 +1,27 @@
+.vr-player { min-width: 380px; max-width: 95vw; }
+.vr-player .window-content { overflow: auto; }
+.vr-player-body { display: flex; flex-direction: column; gap: 8px; min-height: 0; }
+.vr-player-body h2, .vr-player-body p { margin: 0 0 6px; }
+.vr-player .vr-standing { padding: 8px; border: 1px solid var(--color-border-light-2, #999); border-radius: 3px; }
+.vr-player .vr-proxy-message { max-height: 45vh; overflow: auto; overflow-wrap: anywhere; }
+.vr-player .vr-proxy-message img { max-width: 100%; height: auto; }
+.vr-player .vr-goods, .vr-player .vr-ledger-list { max-height: 52vh; overflow-y: auto; min-height: 0; }
+.vr-player .vr-goods h3 { margin: 10px 0 6px; }
+.vr-player .vr-item-columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 12px; }
+.vr-player .vr-donation-row { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 5px 0; border-bottom: 1px solid var(--color-border-light-2, #bbb); }
+.vr-player .vr-quantity { display: flex; align-items: center; gap: 3px; max-width: 100%; }
+.vr-player .vr-quantity button { flex: 0 0 26px; width: 26px; padding: 0; margin: 0; }
+.vr-player .vr-quantity input { width: 60px; min-width: 42px; text-align: right; }
+.vr-player .vr-quantity > span { overflow-wrap: anywhere; }
+.vr-player .vr-good-name { flex: 1 1 90px; min-width: 0; overflow-wrap: anywhere; }
+.vr-player .vr-good-name small { display: block; opacity: .75; }
+.vr-player .vr-empty { opacity: .65; }
+.vr-player .vr-player-actions { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.vr-player .vr-player-actions button { flex: 1 1 120px; width: auto; margin: 0; }
+.vr-player .vr-ledger-row { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; padding: 8px 4px; border-bottom: 1px solid var(--color-border-light-2, #bbb); }
+.vr-player .vr-ledger-row strong { overflow-wrap: anywhere; }
+.vr-player .vr-ledger-row > span { flex-shrink: 0; }
+@media (max-width: 600px) {
+  .vr-player .vr-item-columns { grid-template-columns: minmax(0, 1fr); }
+  .vr-player .vr-ledger-row { flex-wrap: wrap; }
+}

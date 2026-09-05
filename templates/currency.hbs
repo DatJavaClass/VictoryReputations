@@ -1,0 +1,7 @@
+<form>
+  <label class="vr-field">Known currencies <select name="currency"><option value="">Custom currency below</option>{{#each currencies}}<option value="{{key}}">{{name}}</option>{{/each}}</select></label>
+  <label class="vr-field">Custom currency name <input name="name"></label>
+  <label class="vr-field">Custom currency identifier <input name="key" placeholder="gp"></label>
+  <label class="vr-field">Reputation Units <input type="number" name="units" value="1" min="-1000" max="9999" step="1" required></label>
+  <button type="submit">Add Currency</button>
+</form>

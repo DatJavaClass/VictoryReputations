@@ -1,0 +1,81 @@
+<form class="vr-layout">
+  <nav class="tabs" data-group="primary">
+    <a class="item" data-tab="basic">Basic Info</a>
+    <a class="item" data-tab="progress">Progress</a>
+    <a class="item" data-tab="rewards">Rewards</a>
+  </nav>
+  <section class="vr-body">
+    <div class="tab" data-tab="basic" data-group="primary">
+      <label class="vr-field">Name <input name="name" value="{{rep.name}}" required></label>
+      <fieldset><legend>Tiers</legend>
+        {{#each rep.tiers}}
+        <div class="vr-row">
+          <input name="tierName.{{@index}}" value="{{name}}" aria-label="Tier name" required>
+          <label>Units to complete tier <input type="number" name="tierUnits.{{@index}}" value="{{units}}" min="1" max="9999" step="1" required></label>
+        </div>
+        {{/each}}
+        <div class="vr-actions">
+          <button type="button" data-action="add-tier" {{#unless canAddTier}}disabled{{/unless}}>Add Tier</button>
+          <button type="button" data-action="remove-tier" {{#unless canRemoveTier}}disabled{{/unless}}>Remove Final Tier</button>
+        </div>
+      </fieldset>
+      <div class="vr-options">
+        <label><input type="checkbox" name="compressTiers" {{checked rep.compressTiers}}> Compress Tiers for Players</label>
+        <label><input type="checkbox" name="conditional" {{checked rep.conditional}}> Conditional Reputation?</label>
+        <label><input type="checkbox" name="negative" {{checked rep.negative}}> Negative Reputation</label>
+        <label><input type="checkbox" name="hostile" {{checked rep.hostile}}> Hostile Reputation</label>
+        <label><input type="checkbox" name="party" {{checked rep.party}}> Party Reputation?</label>
+        <label><input type="checkbox" name="repeatRewards" {{checked rep.repeatRewards}}> Reward again after tier loss</label>
+      </div>
+      <fieldset><legend>Opposing Reputations</legend>
+        <p>Equal gains and losses. Each direct link applies once, in either direction.</p>
+        {{#each opponents}}<label class="vr-field"><input type="checkbox" name="opposing" value="{{id}}" {{checked selected}}> {{name}}</label>{{else}}<p>Create another reputation to link an opponent.</p>{{/each}}
+      </fieldset>
+      <fieldset><legend>Player Party</legend>
+        <p>Shared across all reputations. Manage it from Reputations > Player Party.</p>
+        {{#each members}}<p>{{name}}</p>{{else}}<p>No party characters configured yet.</p>{{/each}}
+      </fieldset>
+      <fieldset><legend>Proxy Pane</legend>
+        {{#if faction}}<div class="vr-drop" data-drop="proxies">Drag and Drop Interactive Faction NPCs here</div>{{/if}}
+        {{#each rep.proxies}}
+        <div class="vr-row">
+          <div class="vr-grow"><strong>{{name}}</strong><small>{{locations}}</small></div>
+          <button type="button" data-action="message" data-id="{{id}}">Dialog</button>
+          {{#if ../faction}}<button type="button" data-action="remove" data-kind="proxies" data-id="{{id}}" aria-label="Remove proxy">Remove</button>{{/if}}
+        </div>
+        {{/each}}
+      </fieldset>
+    </div>
+    <div class="tab" data-tab="progress" data-group="primary">
+      <div class="vr-drop" data-drop="items">Drag accepted items from the world or a compendium here</div>
+      {{#each rep.items}}
+      <div class="vr-row">
+        <span class="vr-grow">{{name}}</span>
+        <input type="number" name="items.{{@index}}" value="{{units}}" min="-1000" max="9999" step="1" aria-label="Reputation Units" required>
+        <button type="button" data-action="remove" data-kind="items" data-id="{{id}}">Remove</button>
+      </div>
+      {{/each}}
+      <h3>Currencies</h3>
+      {{#each rep.currencies}}
+      <div class="vr-row">
+        <span class="vr-grow">{{name}}</span>
+        <input type="number" name="currencies.{{@index}}" value="{{units}}" min="-1000" max="9999" step="1" aria-label="Reputation Units" required>
+        <button type="button" data-action="remove" data-kind="currencies" data-id="{{id}}">Remove</button>
+      </div>
+      {{/each}}
+      <button type="button" data-action="currency">Add Currency</button>
+    </div>
+    <div class="tab" data-tab="rewards" data-group="primary">
+      <p>Drop one compendium reward onto each tier. Rewards are earned when that tier is reached. Tier 1 starts at zero and its reward is granted on the first qualifying interaction. Buffs and spells are excluded.</p>
+      {{#each tiers}}
+      <div class="vr-drop" data-drop="rewards" data-tier="{{id}}">
+        <strong>{{name}}</strong>
+        {{#if reward}}
+        <div class="vr-row"><span class="vr-grow">{{reward.name}}</span><button type="button" data-action="remove" data-kind="rewards" data-id="{{reward.id}}">Remove</button></div>
+        {{else}}<p>Drop reward here</p>{{/if}}
+      </div>
+      {{/each}}
+    </div>
+  </section>
+  <footer class="vr-actions"><button type="submit">Save Reputation</button></footer>
+</form>
