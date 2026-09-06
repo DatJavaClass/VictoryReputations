@@ -163,6 +163,11 @@ This script is a last resort debug option for Victory Reputations. Run this, and
 })();
 ```
 
+## Known Bugs
+
+- The Reputation option may not be visible when the actor being engaged is an Item Pile.
+  - Temporary Fix until Solved: Reload Player Client
+
 ## License
 
 MIT, copyright 2026 DatJavaClass. Fork it, change it, redistribute it. Keep the copyright and license notice with copies or substantial portions. See [LICENSE](LICENSE).
