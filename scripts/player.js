@@ -1,7 +1,7 @@
 import { MODULE, ReputationStore } from "./store.js";
 import { Runtime } from "./runtime.js";
 
-function escape(value) {
+function escape(value) { // HTML escape for Dialog content
   const span = document.createElement("span");
   span.textContent = String(value ?? "");
   return span.innerHTML.replaceAll('"', "&quot;");
@@ -23,8 +23,8 @@ export async function chooseActor(actor) {
     return actor;
   }
 
-  const controlled = (canvas?.tokens?.controlled ?? []).map(token => token.actor).filter(actor => actor && !actor.isToken && actor.testUserPermission(game.user, "OWNER"));
-  const selected = [...new Map(controlled.map(actor => [actor.uuid, actor])).values()];
+  const controlled = (canvas?.tokens?.controlled ?? []).map(token => token.actor).filter(actor => actor && !actor.isToken && actor.testUserPermission(game.user, "OWNER")); // Controlled tokens first, then owned actors, then a picker
+  const selected = [...new Map(controlled.map(actor => [actor.uuid, actor])).values()]; // Map dedupes by uuid
   if (selected.length === 1) return selected[0];
   const available = [...new Map([...selected, ...game.actors.filter(actor => actor.testUserPermission(game.user, "OWNER"))].map(actor => [actor.uuid, actor])).values()];
   if (!available.length) throw new Error("You do not own a character. Ask your GM to assign one.");
@@ -36,7 +36,7 @@ export async function chooseActor(actor) {
 
 export function proxyChoices(actor) {
   if (actor?.documentName !== "Actor") return [];
-  const sources = new Set([actor.uuid, actor.getFlag("core", "sourceId"), actor._stats?.compendiumSource, actor.prototypeToken?.actor?.uuid].filter(Boolean));
+  const sources = new Set([actor.uuid, actor.getFlag("core", "sourceId"), actor._stats?.compendiumSource, actor.prototypeToken?.actor?.uuid].filter(Boolean)); // Token actors match by uuid, source id, or compendium source
   if (actor.isToken && actor.id) sources.add(`Actor.${actor.id}`);
   return ReputationStore.read().reputations.flatMap(rep => rep.proxies.filter(proxy => sources.has(proxy.actorUuid)).map(proxy => ({ rep, proxy })));
 }
@@ -100,11 +100,11 @@ class ReputationInteraction extends Application {
       const data = { name: rep.name, actorName: this.actor.name, standing, donating: this.donating,
         message: await TextEditor.enrichHTML(proxy.message, { async: true, secrets: false, relativeTo: this.actor }), pending: this.pending };
       if (!this.donating) return data;
-      this.stock = await Runtime.inventory(this.actor, rep);
+      this.stock = await Runtime.inventory(this.actor, rep); // Stock refreshes each render, quantities clamp to what is owned
       for (const kind of ["items", "currencies"]) {
         data[kind] = rep[kind].flatMap(offer => {
           const stock = this.stock.filter(row => row.kind === kind && row.offerId === offer.id);
-          return (stock.length ? stock : [{ id: `unavailable-${kind}-${offer.id}`, quantity: 0 }]).map(row => {
+          return (stock.length ? stock : [{ id: `unavailable-${kind}-${offer.id}`, quantity: 0 }]).map(row => { // Placeholder row keeps unowned offers visible
             const quantity = Math.min(this.quantities.get(row.id) ?? 0, row.quantity);
             this.quantities.set(row.id, quantity);
             return { id: row.id, name: row.name || offer.name, owned: row.quantity, quantity, empty: !row.quantity, remaining: row.quantity - quantity };
@@ -133,7 +133,7 @@ class ReputationInteraction extends Application {
 
   setQuantity(row, value) {
     if (this.pending) return;
-    const stock = this.stock.find(stock => stock.id === row.dataset.stock), quantity = Math.min(stock?.quantity ?? 0, Math.max(0, Number.isSafeInteger(value) ? value : 0));
+    const stock = this.stock.find(stock => stock.id === row.dataset.stock), quantity = Math.min(stock?.quantity ?? 0, Math.max(0, Number.isSafeInteger(value) ? value : 0)); // Clamp to 0..owned, non-integers become 0
     this.quantities.set(row.dataset.stock, quantity);
     row.querySelector("input").value = quantity;
     row.querySelector("[data-remaining]").textContent = (stock?.quantity ?? 0) - quantity;
@@ -160,7 +160,7 @@ class ReputationInteraction extends Application {
   }
 
   async close(options) {
-    if (this.pending) return;
+    if (this.pending) return; // No closing mid-request
     return super.close(options);
   }
 }
@@ -169,7 +169,7 @@ class ReputationLedger extends Application {
   constructor(actor) {
     super();
     this.actor = actor;
-    this.handlers = [
+    this.handlers = [ // Hook ids stored for cleanup in close
       ["updateActor", Hooks.on("updateActor", changed => { if (changed.uuid === actor.uuid) this.render(); })],
       ["victoryReputationsChanged", Hooks.on("victoryReputationsChanged", () => this.render())],
       ["victoryStandingChanged", Hooks.on("victoryStandingChanged", () => this.render())]

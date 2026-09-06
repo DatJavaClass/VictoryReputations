@@ -2,11 +2,11 @@ import { integer } from "./core.js";
 import { MODULE } from "./store.js";
 
 const adapters = new Map(), icon = "icons/sundries/books/book-open-purple.webp";
-const read = (value, path) => path.split(".").reduce((current, key) => current?.[key], value);
+const read = (value, path) => path.split(".").reduce((current, key) => current?.[key], value); // Safe dotted path getter
 const quantity = value => integer(value, 0, Number.MAX_SAFE_INTEGER, "Resource quantity");
-const sourceMatches = (item, uuid) => [item.uuid, item._stats?.compendiumSource, item.flags?.core?.sourceId].includes(uuid);
+const sourceMatches = (item, uuid) => [item.uuid, item._stats?.compendiumSource, item.flags?.core?.sourceId].includes(uuid); // Matches an owned item back to its compendium source
 
-function resourcePath(path) {
+function resourcePath(path) { // Whitelists system.* paths, blocks prototype keys
   if (typeof path !== "string" || !/^system\.[A-Za-z0-9_]+(?:\.[A-Za-z0-9_]+)*$/.test(path) || path.split(".").some(key => ["__proto__", "prototype", "constructor"].includes(key))) throw new Error("Currency requires a safe system attribute path.");
   return path;
 }
@@ -15,7 +15,7 @@ function pilesAPI() {
   return globalThis.game?.modules?.get("item-piles")?.active ? game.itempiles?.API : null;
 }
 
-function currencyIdentity(value) {
+function currencyIdentity(value) { // Stable key for custom Item Piles currencies without a uuid
   if (Array.isArray(value)) return value.map(currencyIdentity);
   if (!value || typeof value !== "object") return value;
   return Object.fromEntries(Object.keys(value).sort().filter(key => !["_id", "_stats", "folder", "ownership", "sort", "quantity"].includes(key)).map(key => [key, currencyIdentity(value[key])]));
@@ -32,7 +32,7 @@ function pilesCurrencies(actor) {
       const itemId = currency.item?.id ?? currency.item?._id, definition = currency.data?.item;
       if (!uuid && !definition) throw new Error(`Custom currency ${currency.name} has no item definition.`);
       const key = uuid ? `item-piles:item:${uuid}` : `item-piles:custom:${JSON.stringify(currencyIdentity(definition))}`;
-      if (itemId && !Array.from(actor?.items ?? []).some(item => item.id === itemId)) throw new Error(`Custom currency ${currency.name} resolved outside the actor.`);
+      if (itemId && !Array.from(actor?.items ?? []).some(item => item.id === itemId)) throw new Error(`Custom currency ${currency.name} resolved outside the actor.`); // Guards against a currency item that is not on this actor
       return [{ key, name: game.i18n.localize(currency.name), uuid, itemId }];
     });
   } catch (error) {
@@ -49,7 +49,7 @@ class GenericAdapter {
     return resourcePath(this.config().quantityPath || "system.quantity");
   }
 
-  currencyDefinitions(actor) {
+  currencyDefinitions(actor) { // Numeric fields under the currency path count as currencies, plus Item Piles
     const path = resourcePath(this.config().currencyPath || "system.currency"), currencies = actor ? read(actor, path) : {};
     return [...Object.entries(currencies ?? {}).filter(([, value]) => Number.isSafeInteger(value) && value >= 0).map(([key]) => ({ key, name: key, path: resourcePath(`${path}.${key}`) })), ...pilesCurrencies(actor)];
   }
@@ -69,7 +69,7 @@ class GenericAdapter {
       if (currency.path) {
         stock.push({ id: `currencies:${offer.id}`, kind: "currencies", offerId: offer.id, name: offer.name, quantity: quantity(read(actor, currency.path)), path: currency.path });
       } else {
-        const path = resourcePath(pilesAPI().ITEM_QUANTITY_ATTRIBUTE);
+        const path = resourcePath(pilesAPI().ITEM_QUANTITY_ATTRIBUTE); // Item backed Piles currencies use the Piles quantity attribute
         for (const item of items.filter(item => item.id === currency.itemId || (currency.uuid && sourceMatches(item, currency.uuid)))) {
           stock.push({ id: `currencies:${offer.id}:${item.id}`, kind: "currencies", offerId: offer.id, name: offer.name, img: item.img, quantity: quantity(read(item, path)), itemId: item.id, path });
         }
@@ -79,13 +79,13 @@ class GenericAdapter {
     return stock;
   }
 
-  async plan(actor, quote, rep, rewards = []) {
+  async plan(actor, quote, rep, rewards = []) { // Builds the update set, never writes
     const stock = await this.inventory(actor, rep), resources = new Map(), itemUpdates = new Map(), actorUpdate = {}, itemCreates = [], itemDeletes = [];
     if (quote.reputationId !== rep.id) throw new Error("Donation belongs to another reputation.");
     for (const line of quote.lines) {
       const row = stock.find(row => row.id === line.id && row.kind === line.kind && row.offerId === line.offerId);
       if (!row) throw new Error("The selected resource is no longer available.");
-      const amount = quantity(line.quantity), key = `${row.itemId ?? "actor"}:${row.path}`, total = quantity((resources.get(key)?.total ?? 0) + amount);
+      const amount = quantity(line.quantity), key = `${row.itemId ?? "actor"}:${row.path}`, total = quantity((resources.get(key)?.total ?? 0) + amount); // Sum lines hitting the same item or actor path
       if (total > row.quantity) throw new Error(`Insufficient ${row.name}.`);
       resources.set(key, { row, total });
     }
@@ -114,7 +114,7 @@ class GenericAdapter {
       delete data.folder;
       delete data.ownership;
       delete data.sort;
-      if (data.type === "race") {
+      if (data.type === "race") { // PF1 allows one race, replace it
         const previous = itemCreates.findIndex(item => item.type === "race");
         if (previous >= 0) itemCreates.splice(previous, 1);
         for (const item of Array.from(actor.items).filter(item => item.type === "race")) {
@@ -129,10 +129,10 @@ class GenericAdapter {
       itemCreates.push(data);
     }
 
-    return { itemUpdates: [...itemUpdates.values()].filter(item => !itemDeletes.includes(item._id)), actorUpdate, itemCreates, itemDeletes };
+    return { itemUpdates: [...itemUpdates.values()].filter(item => !itemDeletes.includes(item._id)), actorUpdate, itemCreates, itemDeletes }; // Deleted items drop their pending updates
   }
 
-  ledgerData() {
+  ledgerData() { // First item type this system supports wins
     const types = game.documentTypes?.Item ?? [], configured = this.config().ledgerType, type = configured || ["feat", "loot", "equipment", "item"].find(type => types.includes(type));
     if (!type || !types.includes(type)) throw new Error("Choose a valid ledger item type in the generic adapter settings. The module ledger window remains available.");
     return { name: "Reputations", type, img: icon, flags: { [MODULE]: { ledger: true } }, system: { description: { value: "<p>A living ledger of your character's standing in the world. Open the module's Reputations window to check your relationships.</p>" } } };
@@ -164,7 +164,7 @@ export function registerAdapter(systemId, adapter) {
 }
 
 export function getAdapter() {
-  return adapters.get(globalThis.game?.system?.id) ?? generic;
+  return adapters.get(globalThis.game?.system?.id) ?? generic; // Generic fallback for unregistered systems
 }
 
 registerAdapter("pf1", new PathfinderAdapter());

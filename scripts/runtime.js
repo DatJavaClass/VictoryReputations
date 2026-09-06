@@ -12,9 +12,10 @@ export class Runtime {
     game.settings.register(MODULE, "genericAdapter", { scope: "world", config: false, type: Object,
       default: { quantityPath: "system.quantity", currencyPath: "system.currency", ledgerType: "" } });
     game.settings.register(MODULE, "debug", { name: "Debug logging", hint: "Log reputation requests and transaction stages.", scope: "world", config: true, type: Boolean, default: false });
-    Hooks.on("updateActor", (actor, changes, options, userId) => {
+    Hooks.on("updateActor", (actor, changes, options, userId) => { // Actor flags carry player requests to the GM and responses back
+      // Flag changes arrive dotted or nested depending on the update source
       const request = changes[`flags.${MODULE}.request`] ?? foundry.utils.getProperty(changes, `flags.${MODULE}.request`), response = changes[`flags.${MODULE}.response`] ?? foundry.utils.getProperty(changes, `flags.${MODULE}.response`);
-      if (request?.id && game.users.activeGM?.id === game.user.id) this.enqueue(() => this.execute(actor, request, userId)).catch(error => this.report(error));
+      if (request?.id && game.users.activeGM?.id === game.user.id) this.enqueue(() => this.execute(actor, request, userId)).catch(error => this.report(error)); // Only the active GM executes
       if (response?.id && game.users.get(userId)?.isGM) this.receive(response);
     });
   }
@@ -29,7 +30,7 @@ export class Runtime {
     Hooks.callAll("victoryReputationsTransaction", stage, data);
   }
 
-  static enqueue(task) {
+  static enqueue(task) { // One transaction at a time
     const operation = this.queue.then(task);
     this.queue = operation.catch(() => {});
     return operation;
@@ -72,20 +73,21 @@ export class Runtime {
     const pending = Array.from(this.pending.values()).find(row => row.actorUuid === actor.uuid);
     if (pending && !pending.timedOut) throw new Error("A request for this character is already pending.");
     const prior = actor.getFlag(MODULE, "request"), response = actor.getFlag(MODULE, "response");
+    // Reuse an unanswered request under a day old so a retry cannot double charge
     const unresolved = pending?.data ?? (prior?.id && prior.id !== response?.id && Date.now() - prior.created < 86400000 ? prior : null);
     const data = unresolved ? { ...unresolved, created: Date.now() } : { kind: "donation", delta: null, selection: [], proxyId: null, ...request, id: foundry.utils.randomID(), created: Date.now() };
     if (unresolved) ui.notifications.warn("Retrying the previous request with its original goods selection.");
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
-        this.pending.get(data.id).timedOut = true;
+        this.pending.get(data.id).timedOut = true; // Flag it so a retry reuses this request
         reject(new Error("The GM has not confirmed this request. Retrying will use this same request to prevent duplicate charges."));
       }, 60000);
       this.pending.set(data.id, { resolve, reject, timer, actorUuid: actor.uuid, data, timedOut: false });
-      actor.setFlag(MODULE, "request", data).catch(error => this.receive({ id: data.id, ok: false, error: error.message }));
+      actor.setFlag(MODULE, "request", data).catch(error => this.receive({ id: data.id, ok: false, error: error.message })); // Flag write is the transport, GM picks it up in updateActor
     });
   }
 
-  static async execute(actor, request, userId) {
+  static async execute(actor, request, userId) { // GM side, runs one request through quote, plan, prepare, mutate, commit
     ReputationStore.requireGM();
     let journal, state;
     try {
@@ -94,7 +96,7 @@ export class Runtime {
       if (typeof request.id !== "string" || !/^[a-zA-Z0-9]{16}$/.test(request.id)) throw new Error("Invalid request identifier.");
       state = this.read();
       const previous = state.transactions.find(row => row.id === request.id);
-      if (previous) {
+      if (previous) { // Idempotent replay of an already processed id
         if (previous.actorUuid !== actor.uuid || previous.userId !== userId) throw new Error("Request identity mismatch.");
         await this.respond(actor, { id: request.id, ok: previous.status === "committed", error: previous.error ?? "This request was already processed." });
         return;
@@ -110,18 +112,18 @@ export class Runtime {
       const quote = request.kind === "adjust" ? { reputationId: rep.id, units: request.delta, lines: [] } : quoteDonation(rep, request.selection, await this.inventory(actor, rep));
       const planned = planStanding(definitions, state, rep.id, actor.uuid, quote.units), adapter = getAdapter();
       const plan = await adapter.plan(actor, quote, rep, planned.rewards);
-      journal = await this.prepare(actor, plan, request.id, userId);
-      state.transactions = state.transactions.filter(row => ["prepared", "recovery"].includes(row.status) || Date.now() - row.created < 86400000);
+      journal = await this.prepare(actor, plan, request.id, userId); // Journal of pre-change values for rollback
+      state.transactions = state.transactions.filter(row => ["prepared", "recovery"].includes(row.status) || Date.now() - row.created < 86400000); // Prune journals over a day old, keep any needing recovery
       state.transactions.push(journal);
       await this.save(state);
       this.debug("prepared", { id: request.id, actorUuid: actor.uuid, changes: planned.changes });
-      await this.mutate(actor, plan, journal);
+      await this.mutate(actor, plan, journal); // Point of no return starts here
       planned.state.transactions = state.transactions;
       journal.status = "committed";
       await this.save(planned.state);
       this.debug("committed", { id: request.id, actorUuid: actor.uuid });
     } catch (error) {
-      if (journal && this.read().transactions.some(row => row.id === journal.id && row.status === "committed")) {
+      if (journal && this.read().transactions.some(row => row.id === journal.id && row.status === "committed")) { // Commit landed but respond failed, still a success
         this.report(error);
         await this.respond(actor, { id: request.id, ok: true });
         return;
@@ -148,7 +150,7 @@ export class Runtime {
     await this.respond(actor, { id: request.id, ok: true });
   }
 
-  static async prepare(actor, plan, id, userId) {
+  static async prepare(actor, plan, id, userId) { // Snapshots every path mutate will touch
     const actorBefore = {}, itemsBefore = [], deleted = [];
     for (const path of Object.keys(plan.actorUpdate)) {
       const value = foundry.utils.getProperty(actor.toObject(), path);
@@ -170,7 +172,7 @@ export class Runtime {
       deleted.push(item.toObject());
     }
 
-    for (const item of plan.itemCreates) item._id = foundry.utils.randomID();
+    for (const item of plan.itemCreates) item._id = foundry.utils.randomID(); // Pre-assign ids so rollback can find created rewards
     return { id, userId, actorUuid: actor.uuid, created: Date.now(), status: "prepared", actorBefore, itemsBefore, deleted, createdIds: plan.itemCreates.map(item => item._id) };
   }
 
@@ -184,7 +186,7 @@ export class Runtime {
     }
   }
 
-  static async rollback(actor, journal) {
+  static async rollback(actor, journal) { // Reverse order of mutate
     const created = journal.createdIds.filter(id => actor.items.has(id)), deleted = journal.deleted.filter(item => !actor.items.has(item._id));
     if (created.length) await actor.deleteEmbeddedDocuments("Item", created);
     if (deleted.length) await actor.createEmbeddedDocuments("Item", deleted, { keepId: true });
@@ -194,7 +196,7 @@ export class Runtime {
   }
 
   static async respond(actor, response) {
-    this.receive(response);
+    this.receive(response); // GM's own pending resolves here, players via the flag
     await actor.setFlag(MODULE, "response", response);
   }
 
@@ -217,7 +219,7 @@ export class Runtime {
     if (!actor?.testUserPermission(game.user, "OWNER")) throw new Error("Choose a character you own.");
     const existing = actor.items.find(item => item.getFlag(MODULE, "ledger"));
     if (existing) {
-      if (game.system.id === "pf1" && existing.type === "feat" && existing.system.subType !== "trait") await existing.update({ "system.subType": "trait" });
+      if (game.system.id === "pf1" && existing.type === "feat" && existing.system.subType !== "trait") await existing.update({ "system.subType": "trait" }); // Repairs a ledger feat knocked off the trait subtype
       return existing;
     }
     const data = await getAdapter().ledgerData(actor);

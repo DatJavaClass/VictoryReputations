@@ -4,7 +4,7 @@ export function defaultTierUnits(index) {
   return 50 * 2 ** index;
 }
 
-export function migrateTiers(source) {
+export function migrateTiers(source) { // Legacy per-tier units become cumulative totals
   if (source.tierBasis === "total" || !source.tiers) return source;
   let total = 0;
   return { ...source, tierBasis: "total", tiers: source.tiers.map(tier => {
@@ -21,7 +21,7 @@ export function integer(value, min, max, label) {
 
 function identifier(value, label) {
   if (typeof value !== "string" || !value.trim()) throw new Error(`${label} is required.`);
-  if (["__proto__", "constructor", "prototype"].includes(value)) throw new Error(`${label} is reserved.`);
+  if (["__proto__", "constructor", "prototype"].includes(value)) throw new Error(`${label} is reserved.`); // Blocks prototype pollution keys
   return value;
 }
 
@@ -106,11 +106,11 @@ export function applyUnits(current, delta, negative = false) {
   integer(delta, Number.MIN_SAFE_INTEGER, Number.MAX_SAFE_INTEGER, "Reputation change");
   const total = current + delta;
   if (!Number.isSafeInteger(total)) throw new Error("Reputation exceeds safe numerical limits.");
-  const units = Math.max(negative ? LIMITS.floor : 0, total);
+  const units = Math.max(negative ? LIMITS.floor : 0, total); // Floor at 0, or -1000 when negative rep is allowed
   return { before: current, units, delta: units - current };
 }
 
-export function quoteDonation(reputation, selection, inventory) {
+export function quoteDonation(reputation, selection, inventory) { // Prices a selection against live inventory, throws on shortfall
   const rep = validateReputation(reputation), lines = [];
   let units = 0;
   unique(selection, "Selection");
@@ -133,15 +133,15 @@ export function quoteDonation(reputation, selection, inventory) {
 }
 
 export function tierProgress(rep, units) {
-  const tiers = migrateTiers(rep).tiers, earned = tiers.filter(tier => units >= 0 && units >= tier.units).map(tier => tier.id);
+  const tiers = migrateTiers(rep).tiers, earned = tiers.filter(tier => units >= 0 && units >= tier.units).map(tier => tier.id); // Cumulative thresholds, earned lists every tier reached
   return { tier: earned.length, current: units, max: tiers[Math.min(earned.length, tiers.length - 1)].units, earned };
 }
 
-export function standingKey(rep, actorUuid) {
+export function standingKey(rep, actorUuid) { // Party reps pool members under one "party" key
   return rep.party && rep.members.includes(actorUuid) ? "party" : actorUuid;
 }
 
-export function planStanding(definitions, state, reputationId, actorUuid, delta) {
+export function planStanding(definitions, state, reputationId, actorUuid, delta) { // Pure state transform, no writes, returns new state plus rewards
   const rep = definitions.find(row => row.id === reputationId), next = structuredClone(state), changes = [];
   if (!rep) throw new Error("Reputation no longer exists.");
   if (rep.party && !rep.members.includes(actorUuid)) throw new Error("The GM must add this character under Reputations > Player Party.");
@@ -149,7 +149,7 @@ export function planStanding(definitions, state, reputationId, actorUuid, delta)
   next.claimed ??= {};
   const update = (target, subject, amount) => {
     const key = standingKey(target, subject);
-    if (changes.some(change => change.id === target.id && change.key === key)) return;
+    if (changes.some(change => change.id === target.id && change.key === key)) return; // One touch per rep and key, stops opposing loops
     next.scores[target.id] ??= {};
     const result = applyUnits(next.scores[target.id][key] ?? 0, amount, target.negative);
     next.scores[target.id][key] = result.units;
@@ -157,7 +157,7 @@ export function planStanding(definitions, state, reputationId, actorUuid, delta)
     return result.delta;
   };
   const applied = update(rep, actorUuid, delta), subjects = rep.party ? rep.members : [actorUuid];
-  if (rep.conditional) {
+  if (rep.conditional) { // Opposing reps lose what this one gained, link works both directions
     for (const target of definitions.filter(row => row.id !== rep.id && row.conditional && (rep.opposing.includes(row.id) || row.opposing.includes(rep.id)))) {
       for (const subject of subjects) update(target, subject, -applied);
     }
@@ -167,10 +167,11 @@ export function planStanding(definitions, state, reputationId, actorUuid, delta)
   next.claimed[actorUuid] ??= {};
   for (const change of changes) {
     const target = definitions.find(row => row.id === change.id);
-    if (change.key !== standingKey(target, actorUuid)) continue;
+    if (change.key !== standingKey(target, actorUuid)) continue; // Only the acting character earns rewards
     const before = tierProgress(target, change.before).earned, after = tierProgress(target, change.units).earned;
     const claimed = next.claimed[actorUuid][target.id] ?? [];
     for (const reward of [...target.rewards].sort((a, b) => target.tiers.findIndex(tier => tier.id === a.tierId) - target.tiers.findIndex(tier => tier.id === b.tierId))) {
+      // repeatRewards re-grants a tier lost and regained, otherwise one claim ever
       if (!after.includes(reward.tierId) || (target.repeatRewards ? before.includes(reward.tierId) && claimed.includes(reward.tierId) : claimed.includes(reward.tierId))) continue;
       rewards.push({ ...reward, reputationId: target.id });
       if (!claimed.includes(reward.tierId)) claimed.push(reward.tierId);

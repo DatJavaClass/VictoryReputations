@@ -16,19 +16,19 @@ export function addProxyButton(app, actor, buttons) {
 
 function directProxy(token) {
   if (!playerProxy(token.actor) || token.document.hidden || !token.isVisible) return false;
-  return !(game.modules.get("item-piles")?.active && game.itempiles?.API?.isValidItemPile(token.document));
+  return !(game.modules.get("item-piles")?.active && game.itempiles?.API?.isValidItemPile(token.document)); // Item Piles keeps its own double click
 }
 
 export function registerPlayerInteraction() {
   const wrappers = {
-    _canView(wrapped, ...args) {
+    _canView(wrapped, ...args) { // Lets players view a proxy they do not own
       return directProxy(this) || wrapped(...args);
     },
-    _onClickLeft2(wrapped, ...args) {
+    _onClickLeft2(wrapped, ...args) { // Double click opens the proxy dialog
       return directProxy(this) ? openProxy(this.actor) : wrapped(...args);
     }
   };
-  for (const [method, wrapper] of Object.entries(wrappers)) {
+  for (const [method, wrapper] of Object.entries(wrappers)) { // libWrapper when present, manual prototype patch otherwise
     if (globalThis.libWrapper) libWrapper.register(MODULE, `CONFIG.Token.objectClass.prototype.${method}`, wrapper, "MIXED");
     else {
       const prototype = CONFIG.Token.objectClass.prototype, original = prototype[method];
@@ -39,7 +39,7 @@ export function registerPlayerInteraction() {
   }
 }
 
-Hooks.on("item-piles-openInterface", (app, actor) => {
+Hooks.on("item-piles-openInterface", (app, actor) => { // Adds the proxy button to Item Piles interfaces
   if (game.user.isGM || app._vrProxyHeader) return;
   const original = app._getHeaderButtons;
   app._getHeaderButtons = function (...args) {

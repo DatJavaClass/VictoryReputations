@@ -12,7 +12,7 @@ export class ReputationStore {
 
   static read() {
     const state = structuredClone(game.settings.get(MODULE, "definitions"));
-    state.partyMembers ??= [...new Set(state.reputations.flatMap(rep => rep.members ?? []))];
+    state.partyMembers ??= [...new Set(state.reputations.flatMap(rep => rep.members ?? []))]; // Older saves stored members per rep
     state.reputations = state.reputations.map(rep => ({ ...migrateTiers(rep), members: [...state.partyMembers] }));
     return state;
   }
@@ -23,7 +23,7 @@ export class ReputationStore {
     if (!gm || gm.id !== game.user.id) throw new Error("The active GM must save reputation changes.");
   }
 
-  static write(revision, change) {
+  static write(revision, change) { // Serialized writes, revision check catches stale editors
     const operation = this.queue.then(async () => {
       this.requireGM();
       const state = this.read();
@@ -31,14 +31,14 @@ export class ReputationStore {
       change(state.reputations, state);
       state.reputations = state.reputations.map(rep => {
         const value = validateReputation({ ...rep, members: state.partyMembers });
-        delete value.members;
+        delete value.members; // Members live in partyMembers, not per rep
         return value;
       });
       state.revision++;
       await game.settings.set(MODULE, "definitions", state);
       return state.revision;
     });
-    this.queue = operation.catch(() => {});
+    this.queue = operation.catch(() => {}); // Keep the chain alive after a failure
     return operation;
   }
 

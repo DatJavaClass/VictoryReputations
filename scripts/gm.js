@@ -5,7 +5,7 @@ import { getAdapter } from "./adapters.js";
 
 const template = name => `modules/${MODULE}/templates/${name}.hbs`;
 
-export async function attempt(task) {
+export async function attempt(task) { // Error boundary, logs and toasts instead of throwing
   try {
     return await task();
   } catch (error) {
@@ -28,7 +28,7 @@ export class ReputationManager extends Application {
 
   getData() {
     const state = ReputationStore.read();
-    this.revision = state.revision;
+    this.revision = state.revision; // Revision guards saves against stale windows
     return { reputations: state.reputations.map(rep => ({ ...rep, selected: rep.id === this.selected })), selected: state.reputations.some(rep => rep.id === this.selected) };
   }
 
@@ -102,6 +102,7 @@ export class ReputationEditor extends FormApplication {
     for (const proxy of rep.proxies) {
       const actor = await fromUuid(proxy.actorUuid).catch(() => null);
       proxy.name = actor?.name ?? "Missing actor";
+      // Lists every scene token backed by this proxy, world or compendium
       proxy.locations = game.scenes.contents.flatMap(scene => scene.tokens.contents.filter(token => (token.actorId === actor?.id && !actor?.pack) || [token.actor?.getFlag("core", "sourceId"), token.actor?._stats?.compendiumSource].includes(proxy.actorUuid))
         .map(token => `${scene.name}: ${token.x}, ${token.y}`)).join("; ") || "No scene token";
     }
@@ -111,11 +112,11 @@ export class ReputationEditor extends FormApplication {
       canRemoveTier: rep.tiers.length > 1, tiers: rep.tiers.map(tier => ({ ...tier, reward: rep.rewards.find(reward => reward.tierId === tier.id) })) };
   }
 
-  capture() {
+  capture() { // Pulls form values into this.object before any re-render
     if (!this.form) return;
     const form = new FormData(this.form), rep = this.object;
     rep.name = String(form.get("name") ?? rep.name).trim();
-    for (const key of ["compressTiers", "conditional", "negative", "hostile", "party", "repeatRewards"]) rep[key] = form.has(key);
+    for (const key of ["compressTiers", "conditional", "negative", "hostile", "party", "repeatRewards"]) rep[key] = form.has(key); // Unchecked boxes are absent from FormData
     rep.opposing = form.getAll("opposing");
     for (const [index, tier] of rep.tiers.entries()) {
       tier.name = String(form.get(`tierName.${index}`) ?? tier.name).trim();
@@ -231,7 +232,7 @@ class CurrencyEditor extends FormApplication {
   }
 
   async getData() {
-    const actor = game.user.character ?? game.actors.find(actor => actor.hasPlayerOwner) ?? game.actors.contents[0];
+    const actor = game.user.character ?? game.actors.find(actor => actor.hasPlayerOwner) ?? game.actors.contents[0]; // Any actor works, currency shape is per system
     return { currencies: await getAdapter().currencyDefinitions(actor) };
   }
 
@@ -275,7 +276,7 @@ export class StandingMonitor extends FormApplication {
         if (!await Dialog.confirm({ title: "Restore Transaction", content: "<p>Restore the recorded inventory values from before this interrupted transaction? Review later character edits first.</p>" })) return;
         await Runtime.recover(id);
       } else if (action === "ledger") await Runtime.installLedger(game.actors.get(this.actorId));
-      else if (action === "adjust") {
+      else if (action === "adjust") { // Adjust goes through Runtime.submit like a donation
         const input = html[0].querySelector(`[data-delta="${id}"]`), delta = Number(input.value);
         integer(delta, -999999, 999999, "Reputation change");
         await Runtime.submit(game.actors.get(this.actorId), { kind: "adjust", reputationId: id, delta });
@@ -348,7 +349,7 @@ class AdapterSettings extends FormApplication {
     await attempt(async () => {
       ReputationStore.requireGM();
       for (const key of ["quantityPath", "currencyPath"]) {
-        if (!/^system(?:\.[a-zA-Z0-9_]+)+$/.test(data[key]) || /(?:__proto__|constructor|prototype)/.test(data[key])) throw new Error("Enter a valid system data path.");
+        if (!/^system(?:\.[a-zA-Z0-9_]+)+$/.test(data[key]) || /(?:__proto__|constructor|prototype)/.test(data[key])) throw new Error("Enter a valid system data path."); // Same path rules as adapters resourcePath
       }
 
       await game.settings.set(MODULE, "genericAdapter", { quantityPath: data.quantityPath, currencyPath: data.currencyPath, ledgerType: String(data.ledgerType ?? "").trim() });
