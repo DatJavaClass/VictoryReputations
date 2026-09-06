@@ -52,11 +52,17 @@ Once we've created our super awesome Faction that has an entirely unique name an
 <p align="center"><img width="545" height="524" alt="image" src="https://github.com/user-attachments/assets/56caafd1-ff04-4e99-a0a4-7676c18cceb3" /></p>
 It's a page that looks like it brought THAC0 to the party and forgot to bring and a "ye-old" gamer like myself to translate. I promise it's not that complex. The first section is reputation tiers. Here you can set "reputation tiers." If you're familiar with a certain monolithic MMO, you'll recognize this right away, if not, think of this as levels for reputation. You set a number of "tiers", max 10, and how many "reputation units" or "units" it takes to reach the next tier. All players start at 0 Reputation with a faction by default. There is a default doubling scale for reputation at base 50 embedded in the module that can be changed. All reputation gain and loss is persistent and starts from zero.
 Now onto the Options:
+
 +__Compress Tiers For Players:__ This option strips away the tier system and just provides a giant number of reputation for players. The Tier system still runs in the background.
+
 +__Negative Reputation:__ This option allows players to fall to -1,000 reputation with the faction.
+
 +__Party Reputation:__ This option makes the reputation shared party wide, all gains and losses are shared among the party
+
 +__Conditional Reputation:__ This is the only option checked true by default. This is the option that enables the Factions to react to each other in terms of dynamically lowering gaining reputation. _ _I do not recommend unchecking this._ _
+
 +__Hostile Reputation:__ This option works only with Negative Reputation, it turns Faction actors hostile in negative reputation excluding those who are manually set friendly.
+
 +__Reward again after loss:__ This option is left off by default, use at your own peril. I leave it off as some rewards may not be items in the traditional sense and could cause a duplication error.
 
 The final three areas are fairly self explanatory. "Opposing Reputations," which has no options at the time of this walkthrough is where one selects another existing reputation to decrease as the one we're assembling increases. The Player Party area is a check, it ensures the party is being affected by the update. If you see anyone not on the list, it means something is up with their actor and they need to be checked. It can happen with these types of Modules. Finally the Proxy pane that is shared between both the Individual NPC and NPC Faction versions of this sheet is a drag and drop interface between the compendium and side bar is where you place those actors who will act as the "Proxies" for the reputation.
