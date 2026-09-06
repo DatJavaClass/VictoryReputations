@@ -47,7 +47,7 @@ As for the question of why not just make Factions of one? The reason is organiza
 To create a Faction, as I am doing in this image (Below) You simply enter a string; to create one for an individual drag an actor type object from either the Compendium  or Sidebar.
 <p align="center"><img width="361" height="376" alt="image" src="https://github.com/user-attachments/assets/f8d60feb-4f4b-4189-a45c-76abe05f8efb" /></p>
 
-###Basic Info:
+### Basic Info:
 Once we've created our super awesome Faction that has an entirely unique name and doesn't sound like something from a Mid-90s anime we'll find ourselves on the Reputations Configuration Page.
 <p align="center"><img width="545" height="524" alt="image" src="https://github.com/user-attachments/assets/56caafd1-ff04-4e99-a0a4-7676c18cceb3" /></p>
 It's a page that looks like it brought THAC0 to the party and forgot to bring and a "ye-old" gamer like myself to translate. I promise it's not that complex. The first section is reputation tiers. Here you can set "reputation tiers." If you're familiar with a certain monolithic MMO, you'll recognize this right away, if not, think of this as levels for reputation. You set a number of "tiers", max 10, and how many "reputation units" or "units" it takes to reach the next tier. All players start at 0 Reputation with a faction by default. There is a default doubling scale for reputation at base 50 embedded in the module that can be changed. All reputation gain and loss is persistent and starts from zero.
@@ -61,7 +61,7 @@ Now onto the Options:
 
 The final three areas are fairly self explanatory. "Opposing Reputations," which has no options at the time of this walkthrough is where one selects another existing reputation to decrease as the one we're assembling increases. The Player Party area is a check, it ensures the party is being affected by the update. If you see anyone not on the list, it means something is up with their actor and they need to be checked. It can happen with these types of Modules. Finally the Proxy pane that is shared between both the Individual NPC and NPC Faction versions of this sheet is a drag and drop interface between the compendium and side bar is where you place those actors who will act as the "Proxies" for the reputation.
 
-###Progress:
+### Progress:
 <p align="center"><img width="550" height="640" alt="image" src="https://github.com/user-attachments/assets/3c529b48-4011-4df6-a04b-92e9b880bf2b" /></p>
 The progress page is another simple one. It is broken into two halves, upper and lower. The upper part is another drag and drop interface that only takes item type objects from the compendium. The lower part uses a more familiar item type picker for currencies. What these two share in common is the number entry field to the right. That is how many "Reputation Units" a  single "unit" of the said item or currency yields when surrendered to a reputation enabled actor. 
 
