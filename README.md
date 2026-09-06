@@ -165,7 +165,7 @@ This script is a last resort debug option for Victory Reputations. Run this, and
 
 ## Known Bugs
 
-- The Reputation option may not be visible when the actor being engaged is an Item Pile.
+- The Reputation option may not be visible when the actor being engaged is flagged to behave as something other than a normal actor.
   - Temporary Fix until Solved: Reload Player Client
 
 ## License
