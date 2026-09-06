@@ -95,3 +95,63 @@ Opening the interactive portion of the Player GUI is fairly strait forward. Go u
 In the above image is the last interaction menu for the module, the surrendering of items to the faction in exchange for reputation 
 
 [Integration API](API.md) 
+
+## The Big Red Button
+
+This script is a last resort debug option for Victory Reputations. Run this, and it resets the Module to a fresh state. All user data in and related to the module excluding child items now passed through the module to actors is removed.
+
+```javascript
+(async () => {
+  const id = "victory-reputations";
+  let resume;
+
+  async function clearFlags(document) {
+    if (document?.flags?.[id]) await document.update({ [`flags.-=${id}`]: null });
+  }
+
+  async function clearItem(item) {
+    if (item.flags?.[id]?.ledger === true) await item.delete();
+    else await clearFlags(item);
+  }
+
+  async function clearActor(actor) {
+    if (!actor) return;
+    for (const item of [...actor.items]) await clearItem(item);
+    await clearFlags(actor);
+  }
+
+  try {
+    if (!game.user.isGM || game.users.activeGM?.id !== game.user.id) throw new Error("Run this as the active GM.");
+    if (!game.modules.get(id)?.active) throw new Error("Enable Victory Reputations before running this reset.");
+    const { Runtime } = await import(foundry.utils.getRoute(`modules/${id}/scripts/runtime.js`));
+    const { ReputationStore } = await import(foundry.utils.getRoute(`modules/${id}/scripts/store.js`));
+    const enqueue = Runtime.enqueue, write = ReputationStore.write;
+    const blocked = () => Promise.reject(new Error("Victory Reputations is resetting."));
+    Runtime.enqueue = ReputationStore.write = blocked;
+    resume = () => { Runtime.enqueue = enqueue; ReputationStore.write = write; };
+    await Promise.all([Runtime.queue, ReputationStore.queue]);
+    for (const setting of game.settings.settings.values()) {
+      if (setting.namespace === id) await game.settings.set(id, setting.key, structuredClone(setting.default));
+    }
+
+    for (const actor of game.actors) await clearActor(actor);
+    for (const scene of game.scenes) {
+      for (const token of scene.tokens) {
+        if (!token.actorLink) await clearActor(token.actor);
+        await clearFlags(token);
+      }
+    }
+
+    for (const item of [...game.items]) await clearItem(item);
+    window.location.reload();
+  } catch (error) {
+    resume?.();
+    console.error("Victory Reputations reset:", error);
+    ui.notifications.error(`${error.message} If the reset was interrupted, correct the error and run it again.`);
+  }
+})();
+```
+
+## License
+
+MIT, copyright 2026 DatJavaClass. Fork it, change it, redistribute it. Keep the copyright and license notice with copies or substantial portions. See [LICENSE](LICENSE).
