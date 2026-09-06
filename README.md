@@ -12,7 +12,7 @@ Victory Reputations tracks faction and individual NPC standing in Foundry VTT. T
 
 Why? Because I hated myself.
 
-Oh, Item Piles is optional. No official integration until I can get in touch with the creator and throw myself at his tender mercies, for running half of my personal PF1e instance, and maybe, just maybe, ask if he'll let me slap what Item Piles can fully do when integrated with Victory Reputations.
+Oh, there is a certain merchant and looting module that is compatible with Victory Reputations. It has no official integration until I can get in touch with the creator and throw myself at his tender mercies. I can say that said module is running half of my personal PF1e instance. Thus maybe, just maybe, ask if he'll let me post what Victory Reputations can fully do when integrated with his module. Haha! Cryptic. 
 
 ## Install
 
