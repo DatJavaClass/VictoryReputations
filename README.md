@@ -32,7 +32,7 @@ Open **Actors > Reputations**.
 ## The GM Reputation Manager
 <p align="center"><img width="357" height="374" alt="image" src="https://github.com/user-attachments/assets/f1cee4a3-6532-4d68-b917-e348cb28dab6" /></p>
 This Rolls Royce of a GUI is the zero state of the Victory Reputations page fresh out of the box or frankly in a state of absolute frustration because you've found bugs I've missed. (by the way, let me know if you've found any bugs.) This landing page is the Manager. From here you'll create, edit, and if needed delete reputations. You'll also have the option here to set integrations with whatever system you're using in terms of quantity, currency, and ledger item types. You'll also notice the big button at the bottom. "Player Party." This is big because it's important. Even if it's just one person, it's critical to how the module functions. (Size is not everything.)
-Now because I love the sound of my own voice so much, even in my own head with all the other voices. I'll be explaining how to use Victory Reputations via a walk through on setting it up and you can imaging my dulcet tones lulling you into enjoying my abomination.
+Now because I love the sound of my own voice so much, even in my own head with all the other voices. I'll be explaining how to use Victory Reputations via a walk through on setting it up and you can imagine my dulcet tones lulling you into enjoying my abomination.
 <p align="center"><img width="480" height="360" alt="FailingToBeHumble" src="https://github.com/user-attachments/assets/64a0f032-4adc-4a9b-85e6-aaefe52de3b7" /></p>
 
 ### The Player Party
