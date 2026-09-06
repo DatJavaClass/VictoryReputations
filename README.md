@@ -88,10 +88,10 @@ Before a player can use Victory Reputations, they need a reputations book. This 
 <p align="center"><img width="421" height="133" alt="image" src="https://github.com/user-attachments/assets/38cdb5b7-7df1-4dac-9bdf-361c7111609b" /></p>
 
 ## Ok, Now the bribery.
-<p align="other"><img width="541" height="172" alt="image" src="https://github.com/user-attachments/assets/a912e889-a520-4d23-80ff-62fff6ffeb8a" /></p>
+<p align="center"><img width="541" height="172" alt="image" src="https://github.com/user-attachments/assets/a912e889-a520-4d23-80ff-62fff6ffeb8a" /></p>
 Opening the interactive portion of the Player GUI is fairly strait forward. Go up to a faction actionable NPC and poke them. twice. It will open the above menu and if the GM decides have a custom message for you. The two choices are a fancy way of offering to give them things or walk away. There is support for a Module I am entirely far to dependent on my personal foundry instance that this is compatible with so you can have both. 
 
-<p align="other"><img width="539" height="305" alt="image" src="https://github.com/user-attachments/assets/cc7b7e63-c501-4cef-a6cd-45e494a29361" /></p>
+<p align="center"><img width="539" height="305" alt="image" src="https://github.com/user-attachments/assets/cc7b7e63-c501-4cef-a6cd-45e494a29361" /></p>
 In the above image is the last interaction menu for the module, the surrendering of items to the faction in exchange for reputation 
 
 [Integration API](API.md) 
