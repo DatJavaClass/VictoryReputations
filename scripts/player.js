@@ -16,28 +16,28 @@ function pick(title, label, choices, selected) {
 }
 
 export async function chooseActor(actor) {
-  if (actor) {
+  if (actor) { // actor given resolves, else picker below
     actor = typeof actor === "string" ? await fromUuid(actor) : actor;
     actor = actor?.actor ?? actor;
-    if (actor?.documentName !== "Actor" || actor.isToken || !actor.testUserPermission(game.user, "OWNER")) throw new Error("Choose an owned world character with a linked token.");
+    if (actor?.documentName !== "Actor" || actor.isToken || !actor.testUserPermission(game.user, "OWNER")) throw new Error("Choose an owned world character with a linked token."); // non owned or token actor throws
     return actor;
   }
 
-  const controlled = (canvas?.tokens?.controlled ?? []).map(token => token.actor).filter(actor => actor && !actor.isToken && actor.testUserPermission(game.user, "OWNER")); // Controlled tokens first, then owned actors, then a picker
+  const controlled = (canvas?.tokens?.controlled ?? []).map(token => token.actor).filter(actor => actor && !actor.isToken && actor.testUserPermission(game.user, "OWNER")); // controlled, owned, then picker
   const selected = [...new Map(controlled.map(actor => [actor.uuid, actor])).values()]; // Map dedupes by uuid
-  if (selected.length === 1) return selected[0];
+  if (selected.length === 1) return selected[0]; // one controlled owned actor wins
   const available = [...new Map([...selected, ...game.actors.filter(actor => actor.testUserPermission(game.user, "OWNER"))].map(actor => [actor.uuid, actor])).values()];
-  if (!available.length) throw new Error("You do not own a character. Ask your GM to assign one.");
-  if (available.length === 1) return available[0];
+  if (!available.length) throw new Error("You do not own a character. Ask your GM to assign one."); // no owned actors throws
+  if (available.length === 1) return available[0]; // single owned actor skips picker
   const preferred = selected.length ? selected[0].uuid : game.user.character?.uuid;
   const id = await pick("Choose Character", "Whose reputation?", available.map(actor => ({ id: actor.uuid, name: actor.name })), preferred);
   return available.find(actor => actor.uuid === id) ?? null;
 }
 
 export function proxyChoices(actor) {
-  if (actor?.documentName !== "Actor") return [];
-  const sources = new Set([actor.uuid, actor.getFlag("core", "sourceId"), actor._stats?.compendiumSource, actor.prototypeToken?.actor?.uuid].filter(Boolean)); // Token actors match by uuid, source id, or compendium source
-  if (actor.isToken && actor.id) sources.add(`Actor.${actor.id}`);
+  if (actor?.documentName !== "Actor") return []; // non actor has no choices
+  const sources = new Set([actor.uuid, actor.getFlag("core", "sourceId"), actor._stats?.compendiumSource, actor.prototypeToken?.actor?.uuid].filter(Boolean)); // uuid, source, compendium match
+  if (actor.isToken && actor.id) sources.add(`Actor.${actor.id}`); // token actor adds its world id
   return ReputationStore.read().reputations.flatMap(rep => rep.proxies.filter(proxy => sources.has(proxy.actorUuid)).map(proxy => ({ rep, proxy })));
 }
 
@@ -45,18 +45,18 @@ export async function openProxy(proxyActorOrUuid, actorOptional) {
   try {
     let proxyActor = typeof proxyActorOrUuid === "string" ? await fromUuid(proxyActorOrUuid) : proxyActorOrUuid;
     proxyActor = proxyActor?.actor ?? proxyActor;
-    if (proxyActor?.documentName !== "Actor") throw new Error("Choose an NPC proxy token or actor.");
+    if (proxyActor?.documentName !== "Actor") throw new Error("Choose an NPC proxy token or actor."); // non actor throws
     const choices = proxyChoices(proxyActor);
-    if (!choices.length) throw new Error("This NPC is not a reputation proxy.");
+    if (!choices.length) throw new Error("This NPC is not a reputation proxy."); // no choices throws
     let choice = choices[0];
-    if (choices.length > 1) {
+    if (choices.length > 1) { // several reps prompts for one
       const id = await pick("Choose Reputation", "Who are you speaking for?", choices.map((row, index) => ({ id: String(index), name: row.rep.name })));
-      if (id === null) return null;
+      if (id === null) return null; // cancelled picker returns null
       choice = choices[Number(id)];
     }
 
     const actor = await chooseActor(actorOptional);
-    if (!actor) return null;
+    if (!actor) return null; // cancelled actor pick returns null
     return new ReputationInteraction(actor, choice.rep.id, choice.proxy.id).render(true);
   } catch (error) {
     ui.notifications.error(error.message);
@@ -93,16 +93,16 @@ class ReputationInteraction extends Application {
 
   async getData() {
     try {
-      if (!this.actor.testUserPermission(game.user, "OWNER")) throw new Error("You no longer own this character.");
+      if (!this.actor.testUserPermission(game.user, "OWNER")) throw new Error("You no longer own this character."); // lost ownership throws
       const rep = ReputationStore.read().reputations.find(rep => rep.id === this.reputationId), proxy = rep?.proxies.find(proxy => proxy.id === this.proxyId);
-      if (!rep || !proxy) throw new Error("This reputation proxy is no longer available.");
+      if (!rep || !proxy) throw new Error("This reputation proxy is no longer available."); // missing rep or proxy throws
       const standing = (await Runtime.ledger(this.actor)).find(row => row.id === rep.id);
       const data = { name: rep.name, actorName: this.actor.name, standing, donating: this.donating,
         message: await TextEditor.enrichHTML(proxy.message, { async: true, secrets: false, relativeTo: this.actor }), pending: this.pending };
-      if (!this.donating) return data;
-      this.stock = await Runtime.inventory(this.actor, rep); // Stock refreshes each render, quantities clamp to what is owned
-      for (const kind of ["items", "currencies"]) {
-        data[kind] = rep[kind].flatMap(offer => {
+      if (!this.donating) return data; // not donating skips stock
+      this.stock = await Runtime.inventory(this.actor, rep); // Refresh stock, clamp quantities to owned
+      for (const kind of ["items", "currencies"]) { // In: offer kinds, out: row data
+        data[kind] = rep[kind].flatMap(offer => { // each offer expands to donation rows
           const stock = this.stock.filter(row => row.kind === kind && row.offerId === offer.id);
           return (stock.length ? stock : [{ id: `unavailable-${kind}-${offer.id}`, quantity: 0 }]).map(row => { // Placeholder row keeps unowned offers visible
             const quantity = Math.min(this.quantities.get(row.id) ?? 0, row.quantity);
@@ -132,8 +132,8 @@ class ReputationInteraction extends Application {
   }
 
   setQuantity(row, value) {
-    if (this.pending) return;
-    const stock = this.stock.find(stock => stock.id === row.dataset.stock), quantity = Math.min(stock?.quantity ?? 0, Math.max(0, Number.isSafeInteger(value) ? value : 0)); // Clamp to 0..owned, non-integers become 0
+    if (this.pending) return; // pending request locks quantities
+    const stock = this.stock.find(stock => stock.id === row.dataset.stock), quantity = Math.min(stock?.quantity ?? 0, Math.max(0, Number.isSafeInteger(value) ? value : 0)); // clamp to owned
     this.quantities.set(row.dataset.stock, quantity);
     row.querySelector("input").value = quantity;
     row.querySelector("[data-remaining]").textContent = (stock?.quantity ?? 0) - quantity;
@@ -141,9 +141,9 @@ class ReputationInteraction extends Application {
   }
 
   async surrender() {
-    if (this.pending) return;
+    if (this.pending) return; // pending request blocks second submit
     const selection = this.stock.map(row => ({ id: row.id, kind: row.kind, offerId: row.offerId, quantity: this.quantities.get(row.id) ?? 0 })).filter(row => row.quantity > 0);
-    if (!selection.length) return ui.notifications.warn("Choose goods to surrender first.");
+    if (!selection.length) return ui.notifications.warn("Choose goods to surrender first."); // empty selection warns and stops
     this.pending = true;
     this.element.find("button, input").prop("disabled", true);
     this.element.find("[data-status]").text("Waiting for the GM...");
@@ -170,7 +170,7 @@ class ReputationLedger extends Application {
     super();
     this.actor = actor;
     this.handlers = [ // Hook ids stored for cleanup in close
-      ["updateActor", Hooks.on("updateActor", changed => { if (changed.uuid === actor.uuid) this.render(); })],
+      ["updateActor", Hooks.on("updateActor", changed => { if (changed.uuid === actor.uuid) this.render(); })], // matching actor rerenders, others ignored
       ["victoryReputationsChanged", Hooks.on("victoryReputationsChanged", () => this.render())],
       ["victoryStandingChanged", Hooks.on("victoryStandingChanged", () => this.render())]
     ];
@@ -183,7 +183,7 @@ class ReputationLedger extends Application {
 
   async getData() {
     try {
-      if (!this.actor.testUserPermission(game.user, "OWNER")) throw new Error("You no longer own this character.");
+      if (!this.actor.testUserPermission(game.user, "OWNER")) throw new Error("You no longer own this character."); // lost ownership throws
       return { actorName: this.actor.name, reputations: await Runtime.ledger(this.actor) };
     } catch (error) {
       return { error: error.message };
@@ -208,7 +208,7 @@ class ReputationLedger extends Application {
   }
 
   async close(options) {
-    for (const [hook, id] of this.handlers) Hooks.off(hook, id);
+    for (const [hook, id] of this.handlers) Hooks.off(hook, id); // In: hook ids, out: all unhooked
     return super.close(options);
   }
 }

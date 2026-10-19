@@ -10,7 +10,7 @@ let manager;
 
 function openManager() {
   return attempt(() => {
-    if (!game.user.isGM) throw new Error("Only a GM can configure reputations.");
+    if (!game.user.isGM) throw new Error("Only a GM can configure reputations."); // non GM throws, GM continues
     manager ??= new ReputationManager();
     manager.render(true);
     return manager;
@@ -21,12 +21,12 @@ Hooks.once("init", () => {
   ReputationStore.register();
   Runtime.register();
   registerHostility();
-  // Public API for macros and other modules, see API.md
+  // Public API for macros, see API.md
   game.modules.get(MODULE).api = Object.freeze({ openManager, openLedger, openProxy, registerAdapter,
     installLedger: actor => Runtime.installLedger(actor), getStanding: actor => Runtime.ledger(actor), hostileTo,
     isHostile: (repId, actor) => {
       const rep = ReputationStore.read().reputations.find(row => row.id === repId);
-      // Party reps share one "party" score key, others key by actor uuid
+      // Party reps share a "party" score key
       return Boolean(rep?.hostile && (Runtime.read().scores[rep.id]?.[rep.party && rep.members.includes(actor.uuid) ? "party" : actor.uuid] ?? 0) < 0);
     }, diagnostics: () => ({ version: game.modules.get(MODULE).version, foundry: game.version, system: game.system.id,
       systemVersion: game.system.version, itemPiles: game.modules.get("item-piles")?.version, activeGM: game.users.activeGM?.id,
@@ -45,7 +45,7 @@ Hooks.on("renderActorDirectory", (app, html) => {
 });
 
 Hooks.on("victoryReputationsChanged", () => {
-  if (manager?.rendered) manager.render();
+  if (manager?.rendered) manager.render(); // open manager rerenders, closed skips
 });
 
 Hooks.on("getSceneControlButtons", controls => {
@@ -53,7 +53,7 @@ Hooks.on("getSceneControlButtons", controls => {
   tokens?.tools.push({ name: "victory-reputations", title: "Talk to Reputation Proxy", icon: "fas fa-handshake", button: true,
     onClick: () => {
       const targets = [...game.user.targets];
-      if (targets.length !== 1) return ui.notifications.warn("Target one reputation proxy first.");
+      if (targets.length !== 1) return ui.notifications.warn("Target one reputation proxy first."); // not exactly one target warns
       openProxy(targets[0].actor);
     } });
   tokens?.tools.push({ name: "victory-ledger", title: "View Reputations", icon: "fas fa-book-open", button: true, onClick: () => openLedger() });
@@ -61,15 +61,15 @@ Hooks.on("getSceneControlButtons", controls => {
 
 Hooks.on("getActorSheetHeaderButtons", (sheet, buttons) => {
   if (playerProxy(sheet.actor)) return addProxyButton(sheet, sheet.actor, buttons); // Players get the proxy button on NPC sheets
-  if (sheet.actor.testUserPermission(game.user, "OWNER")) buttons.unshift({ label: "Reputations", class: "vr-ledger", icon: "fas fa-book-open", onclick: () => openLedger(sheet.actor) });
+  if (sheet.actor.testUserPermission(game.user, "OWNER")) buttons.unshift({ label: "Reputations", class: "vr-ledger", icon: "fas fa-book-open", onclick: () => openLedger(sheet.actor) }); // owner gets ledger header button
 });
 
 Hooks.on("getItemSheetHeaderButtons", (sheet, buttons) => {
-  if (sheet.item.getFlag(MODULE, "ledger") && sheet.item.actor?.testUserPermission(game.user, "OWNER")) buttons.unshift({ label: "View Reputations", class: "vr-ledger", icon: "fas fa-book-open", onclick: () => openLedger(sheet.item.actor) });
+  if (sheet.item.getFlag(MODULE, "ledger") && sheet.item.actor?.testUserPermission(game.user, "OWNER")) buttons.unshift({ label: "View Reputations", class: "vr-ledger", icon: "fas fa-book-open", onclick: () => openLedger(sheet.item.actor) }); // ledger item owner gets button
 });
 
 Hooks.on("pf1PreActionUse", actionUse => {
-  if (!actionUse.item?.getFlag(MODULE, "ledger")) return;
+  if (!actionUse.item?.getFlag(MODULE, "ledger")) return; // non ledger item runs normally
   openLedger(actionUse.item.actor);
   return false; // Cancel the PF1 action, ledger opens instead
 });
@@ -77,5 +77,5 @@ Hooks.on("pf1PreActionUse", actionUse => {
 Hooks.once("ready", () => {
   registerPlayerInteraction();
   // Prepared or recovery journals mean a crashed donation
-  if (game.user.isGM && Runtime.read().transactions.some(row => ["prepared", "recovery"].includes(row.status))) ui.notifications.warn("Victory Reputations has an interrupted transaction. Open Monitor / Modify Standing to restore it.");
+  if (game.user.isGM && Runtime.read().transactions.some(row => ["prepared", "recovery"].includes(row.status))) ui.notifications.warn("Victory Reputations has an interrupted transaction. Open Monitor / Modify Standing to restore it."); // GM with open transaction gets warned
 });

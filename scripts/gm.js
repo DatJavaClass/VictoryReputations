@@ -16,7 +16,7 @@ export async function attempt(task) { // Error boundary, logs and toasts instead
 
 async function droppedDocument(event, type) {
   const data = TextEditor.getDragEventData(event), doc = data.uuid ? await fromUuid(data.uuid) : null;
-  if (doc?.documentName !== type) throw new Error(`Drop an ${type} from the world or a compendium.`);
+  if (doc?.documentName !== type) throw new Error(`Drop an ${type} from the world or a compendium.`); // wrong document type throws
   return doc;
 }
 
@@ -41,14 +41,14 @@ export class ReputationManager extends Application {
     html.find("[data-action]").on("click", event => attempt(async () => {
       ReputationStore.requireGM();
       const action = event.currentTarget.dataset.action, state = ReputationStore.read(), rep = state.reputations.find(row => row.id === this.selected);
-      if (action === "create") new ReputationCreator().render(true);
-      else if (action === "party") new PartyRoster().render(true);
-      else if (action === "monitor") new StandingMonitor().render(true);
-      else if (action === "system") new AdapterSettings().render(true);
-      else if (action === "edit" && rep) new ReputationEditor(rep, state.revision).render(true);
-      else if (action === "delete" && rep) {
+      if (action === "create") new ReputationCreator().render(true); // Dispatch on action, no match ignored
+      else if (action === "party") new PartyRoster().render(true); // party opens roster
+      else if (action === "monitor") new StandingMonitor().render(true); // monitor opens standings
+      else if (action === "system") new AdapterSettings().render(true); // system opens adapter settings
+      else if (action === "edit" && rep) new ReputationEditor(rep, state.revision).render(true); // edit needs selected rep
+      else if (action === "delete" && rep) { // delete needs selected rep
         const confirmed = await Dialog.confirm({ title: "Delete Reputation", content: "<p>Remove the selected reputation and its configuration?</p>" });
-        if (confirmed) await ReputationStore.remove(rep.id, state.revision);
+        if (confirmed) await ReputationStore.remove(rep.id, state.revision); // confirmed deletes, cancelled does nothing
       }
     }));
   }
@@ -99,10 +99,10 @@ export class ReputationEditor extends FormApplication {
     const rep = structuredClone(this.object);
     rep.members = ReputationStore.read().partyMembers;
     rep.opposing ??= [];
-    for (const proxy of rep.proxies) {
+    for (const proxy of rep.proxies) { // In: proxies, out: name and locations
       const actor = await fromUuid(proxy.actorUuid).catch(() => null);
       proxy.name = actor?.name ?? "Missing actor";
-      // Lists every scene token backed by this proxy, world or compendium
+      // Scene tokens backed by this proxy
       proxy.locations = game.scenes.contents.flatMap(scene => scene.tokens.contents.filter(token => (token.actorId === actor?.id && !actor?.pack) || [token.actor?.getFlag("core", "sourceId"), token.actor?._stats?.compendiumSource].includes(proxy.actorUuid))
         .map(token => `${scene.name}: ${token.x}, ${token.y}`)).join("; ") || "No scene token";
     }
@@ -113,18 +113,18 @@ export class ReputationEditor extends FormApplication {
   }
 
   capture() { // Pulls form values into this.object before any re-render
-    if (!this.form) return;
+    if (!this.form) return; // no form yet, skip capture
     const form = new FormData(this.form), rep = this.object;
     rep.name = String(form.get("name") ?? rep.name).trim();
     for (const key of ["compressTiers", "conditional", "negative", "hostile", "party", "repeatRewards"]) rep[key] = form.has(key); // Unchecked boxes are absent from FormData
     rep.opposing = form.getAll("opposing");
-    for (const [index, tier] of rep.tiers.entries()) {
+    for (const [index, tier] of rep.tiers.entries()) { // In: tiers, out: form values
       tier.name = String(form.get(`tierName.${index}`) ?? tier.name).trim();
       tier.units = Number(form.get(`tierUnits.${index}`));
     }
 
-    for (const kind of ["items", "currencies"]) {
-      for (const [index, row] of rep[kind].entries()) row.units = Number(form.get(`${kind}.${index}`));
+    for (const kind of ["items", "currencies"]) { // In: offer kinds, out: unit values
+      for (const [index, row] of rep[kind].entries()) row.units = Number(form.get(`${kind}.${index}`)); // In: rows, out: form units
     }
   }
 
@@ -133,25 +133,25 @@ export class ReputationEditor extends FormApplication {
     html.find("[data-action]").on("click", event => attempt(async () => {
       this.capture();
       const { action, id, kind } = event.currentTarget.dataset, rep = this.object;
-      switch (action) {
+      switch (action) { // In: action, out: rerender or early exit
         case "add-tier":
-          if (rep.tiers.length < 10) rep.tiers.push({ id: foundry.utils.randomID(), name: `Tier ${rep.tiers.length + 1}`, units: defaultTierUnits(rep.tiers.length) });
+          if (rep.tiers.length < 10) rep.tiers.push({ id: foundry.utils.randomID(), name: `Tier ${rep.tiers.length + 1}`, units: defaultTierUnits(rep.tiers.length) }); // under ten tiers adds one
           break;
         case "remove-tier": {
-          if (rep.tiers.length <= 1) break;
+          if (rep.tiers.length <= 1) break; // single tier cannot be removed
           const tier = rep.tiers.at(-1);
-          if (!await Dialog.confirm({ title: "Remove Tier", content: "<p>Remove the final tier and its assigned reward?</p>" })) return;
+          if (!await Dialog.confirm({ title: "Remove Tier", content: "<p>Remove the final tier and its assigned reward?</p>" })) return; // declined confirm cancels removal
           rep.tiers.pop();
           rep.rewards = rep.rewards.filter(reward => reward.tierId !== tier.id);
           break;
         }
         case "remove":
-          if (!["proxies", "items", "currencies", "rewards"].includes(kind) || (kind === "proxies" && rep.kind === "individual")) return;
+          if (!["proxies", "items", "currencies", "rewards"].includes(kind) || (kind === "proxies" && rep.kind === "individual")) return; // bad kind or individual proxy skips
           rep[kind] = rep[kind].filter(row => row.id !== id);
           break;
         case "message": {
           const proxy = rep.proxies.find(row => row.id === id);
-          if (proxy) new ProxyMessage(proxy).render(true);
+          if (proxy) new ProxyMessage(proxy).render(true); // found proxy opens message editor
           return;
         }
         case "currency":
@@ -172,18 +172,18 @@ export class ReputationEditor extends FormApplication {
       ReputationStore.requireGM();
       this.capture();
       const zone = event.target.closest("[data-drop]"), rep = this.object;
-      if (!zone) return;
+      if (!zone) return; // drop outside zone ignored
       const kind = zone.dataset.drop, doc = await droppedDocument(event, kind === "proxies" ? "Actor" : "Item");
-      if (kind === "proxies") {
-        if (rep.kind !== "faction") throw new Error("An individual reputation already has its NPC proxy.");
-        if (!rep.proxies.some(proxy => proxy.actorUuid === doc.uuid)) rep.proxies.push({ id: foundry.utils.randomID(), actorUuid: doc.uuid, message: "" });
-      } else if (kind === "items") {
-        if (!rep.items.some(item => item.uuid === doc.uuid)) rep.items.push({ id: foundry.utils.randomID(), uuid: doc.uuid, name: doc.name, units: 1 });
-      } else if (kind === "rewards") {
-        if (!doc.pack) throw new Error("Drop rewards from a compendium.");
-        if (["buff", "spell"].includes(doc.type.toLowerCase())) throw new Error("Buffs and spells cannot be rewards.");
+      if (kind === "proxies") { // proxy drop, faction only, dedupes
+        if (rep.kind !== "faction") throw new Error("An individual reputation already has its NPC proxy."); // individual rep rejects extra proxy
+        if (!rep.proxies.some(proxy => proxy.actorUuid === doc.uuid)) rep.proxies.push({ id: foundry.utils.randomID(), actorUuid: doc.uuid, message: "" }); // new proxy only, duplicate skipped
+      } else if (kind === "items") { // item drop dedupes by uuid
+        if (!rep.items.some(item => item.uuid === doc.uuid)) rep.items.push({ id: foundry.utils.randomID(), uuid: doc.uuid, name: doc.name, units: 1 }); // new item only, duplicate skipped
+      } else if (kind === "rewards") { // reward drop takes tier from zone
+        if (!doc.pack) throw new Error("Drop rewards from a compendium."); // world item reward throws
+        if (["buff", "spell"].includes(doc.type.toLowerCase())) throw new Error("Buffs and spells cannot be rewards."); // dropped buff or spell throws
         const tierId = zone.dataset.tier;
-        if (!rep.tiers.some(tier => tier.id === tierId)) return;
+        if (!rep.tiers.some(tier => tier.id === tierId)) return; // unknown tier ignores drop
         rep.rewards = rep.rewards.filter(reward => reward.tierId !== tierId);
         rep.rewards.push({ id: foundry.utils.randomID(), tierId, uuid: doc.uuid, name: doc.name, type: doc.type });
       }
@@ -232,7 +232,7 @@ class CurrencyEditor extends FormApplication {
   }
 
   async getData() {
-    const actor = game.user.character ?? game.actors.find(actor => actor.hasPlayerOwner) ?? game.actors.contents[0]; // Any actor works, currency shape is per system
+    const actor = game.user.character ?? game.actors.find(actor => actor.hasPlayerOwner) ?? game.actors.contents[0]; // any actor, per system
     return { currencies: await getAdapter().currencyDefinitions(actor) };
   }
 
@@ -240,9 +240,9 @@ class CurrencyEditor extends FormApplication {
     await attempt(async () => {
       const currencies = (await this.getData()).currencies, selected = currencies.find(row => row.key === data.currency);
       const name = selected?.name ?? String(data.name ?? "").trim(), key = selected?.key ?? String(data.key ?? "").trim(), units = Number(data.units);
-      if (!name || !key) throw new Error("Enter a currency name and identifier.");
+      if (!name || !key) throw new Error("Enter a currency name and identifier."); // blank name or key throws
       integer(units, -1000, 9999, "Currency value");
-      if (this.rep.currencies.some(row => row.key === key)) throw new Error("That currency is already listed.");
+      if (this.rep.currencies.some(row => row.key === key)) throw new Error("That currency is already listed."); // duplicate currency throws
       this.rep.currencies.push({ id: foundry.utils.randomID(), name, key, units });
       this.refresh();
       await this.close();
@@ -272,10 +272,10 @@ export class StandingMonitor extends FormApplication {
     });
     html.find("[data-action]").on("click", event => attempt(async () => {
       const { action, id } = event.currentTarget.dataset;
-      if (action === "recover") {
-        if (!await Dialog.confirm({ title: "Restore Transaction", content: "<p>Restore the recorded inventory values from before this interrupted transaction? Review later character edits first.</p>" })) return;
+      if (action === "recover") { // recover branch confirms then restores
+        if (!await Dialog.confirm({ title: "Restore Transaction", content: "<p>Restore the recorded inventory values from before this interrupted transaction? Review later character edits first.</p>" })) return; // declined confirm skips restore
         await Runtime.recover(id);
-      } else if (action === "ledger") await Runtime.installLedger(game.actors.get(this.actorId));
+      } else if (action === "ledger") await Runtime.installLedger(game.actors.get(this.actorId)); // ledger branch installs ledger item
       else if (action === "adjust") { // Adjust goes through Runtime.submit like a donation
         const input = html[0].querySelector(`[data-delta="${id}"]`), delta = Number(input.value);
         integer(delta, -999999, 999999, "Reputation change");
@@ -313,8 +313,8 @@ class PartyRoster extends FormApplication {
   async _onDrop(event) {
     await attempt(async () => {
       const actor = await droppedDocument(event, "Actor");
-      if (actor.pack || actor.isToken) throw new Error("Drop a world character into the party roster.");
-      if (!this.members.includes(actor.uuid)) this.members.push(actor.uuid);
+      if (actor.pack || actor.isToken) throw new Error("Drop a world character into the party roster."); // pack or token actor throws
+      if (!this.members.includes(actor.uuid)) this.members.push(actor.uuid); // new member added once
       this.render();
     });
   }
@@ -348,7 +348,7 @@ class AdapterSettings extends FormApplication {
   async _updateObject(event, data) {
     await attempt(async () => {
       ReputationStore.requireGM();
-      for (const key of ["quantityPath", "currencyPath"]) {
+      for (const key of ["quantityPath", "currencyPath"]) { // In: path keys, out: throw on bad
         if (!/^system(?:\.[a-zA-Z0-9_]+)+$/.test(data[key]) || /(?:__proto__|constructor|prototype)/.test(data[key])) throw new Error("Enter a valid system data path."); // Same path rules as adapters resourcePath
       }
 

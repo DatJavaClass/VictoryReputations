@@ -12,11 +12,11 @@ export class Runtime {
     game.settings.register(MODULE, "genericAdapter", { scope: "world", config: false, type: Object,
       default: { quantityPath: "system.quantity", currencyPath: "system.currency", ledgerType: "" } });
     game.settings.register(MODULE, "debug", { name: "Debug logging", hint: "Log reputation requests and transaction stages.", scope: "world", config: true, type: Boolean, default: false });
-    Hooks.on("updateActor", (actor, changes, options, userId) => { // Actor flags carry player requests to the GM and responses back
-      // Flag changes arrive dotted or nested depending on the update source
+    Hooks.on("updateActor", (actor, changes, options, userId) => { // Actor flags carry requests and responses
+      // Flags arrive dotted or nested
       const request = changes[`flags.${MODULE}.request`] ?? foundry.utils.getProperty(changes, `flags.${MODULE}.request`), response = changes[`flags.${MODULE}.response`] ?? foundry.utils.getProperty(changes, `flags.${MODULE}.response`);
       if (request?.id && game.users.activeGM?.id === game.user.id) this.enqueue(() => this.execute(actor, request, userId)).catch(error => this.report(error)); // Only the active GM executes
-      if (response?.id && game.users.get(userId)?.isGM) this.receive(response);
+      if (response?.id && game.users.get(userId)?.isGM) this.receive(response); // GM responder gets response received
     });
   }
 
@@ -26,7 +26,7 @@ export class Runtime {
   }
 
   static debug(stage, data) {
-    if (game.settings.get(MODULE, "debug")) console.debug(`${MODULE} | ${stage}`, data);
+    if (game.settings.get(MODULE, "debug")) console.debug(`${MODULE} | ${stage}`, data); // debug setting on logs stage
     Hooks.callAll("victoryReputationsTransaction", stage, data);
   }
 
@@ -46,9 +46,9 @@ export class Runtime {
   }
 
   static async ledger(actor) {
-    if (!actor?.testUserPermission(game.user, "OWNER")) throw new Error("Choose a character you own.");
+    if (!actor?.testUserPermission(game.user, "OWNER")) throw new Error("Choose a character you own."); // non owner throws
     const state = this.read();
-    return ReputationStore.read().reputations.map(rep => {
+    return ReputationStore.read().reputations.map(rep => { // each rep to standing row
       const units = state.scores[rep.id]?.[standingKey(rep, actor.uuid)] ?? 0;
       return { id: rep.id, name: rep.name, units, ...tierProgress(rep, units), compressTiers: rep.compressTiers, hostile: rep.hostile && units < 0 };
     });
@@ -60,60 +60,60 @@ export class Runtime {
 
   static receive(response) {
     const pending = this.pending.get(response.id);
-    if (!pending) return;
+    if (!pending) return; // unknown response id ignored
     clearTimeout(pending.timer);
     this.pending.delete(response.id);
-    if (response.ok) pending.resolve(response);
+    if (response.ok) pending.resolve(response); // ok resolves, failure rejects
     else pending.reject(new Error(response.error));
   }
 
   static async submit(actor, request) {
-    if (!actor?.testUserPermission(game.user, "OWNER") || actor.isToken) throw new Error("Choose an owned world character.");
-    if (!game.users.activeGM) throw new Error("An active GM is required to surrender goods.");
+    if (!actor?.testUserPermission(game.user, "OWNER") || actor.isToken) throw new Error("Choose an owned world character."); // non owner or token actor throws
+    if (!game.users.activeGM) throw new Error("An active GM is required to surrender goods."); // no active GM throws
     const pending = Array.from(this.pending.values()).find(row => row.actorUuid === actor.uuid);
-    if (pending && !pending.timedOut) throw new Error("A request for this character is already pending.");
+    if (pending && !pending.timedOut) throw new Error("A request for this character is already pending."); // live pending request throws
     const prior = actor.getFlag(MODULE, "request"), response = actor.getFlag(MODULE, "response");
-    // Reuse an unanswered request under a day old so a retry cannot double charge
+    // Reuse unanswered request under a day old
     const unresolved = pending?.data ?? (prior?.id && prior.id !== response?.id && Date.now() - prior.created < 86400000 ? prior : null);
     const data = unresolved ? { ...unresolved, created: Date.now() } : { kind: "donation", delta: null, selection: [], proxyId: null, ...request, id: foundry.utils.randomID(), created: Date.now() };
-    if (unresolved) ui.notifications.warn("Retrying the previous request with its original goods selection.");
+    if (unresolved) ui.notifications.warn("Retrying the previous request with its original goods selection."); // reused request warns the player
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => {
         this.pending.get(data.id).timedOut = true; // Flag it so a retry reuses this request
         reject(new Error("The GM has not confirmed this request. Retrying will use this same request to prevent duplicate charges."));
       }, 60000);
       this.pending.set(data.id, { resolve, reject, timer, actorUuid: actor.uuid, data, timedOut: false });
-      actor.setFlag(MODULE, "request", data).catch(error => this.receive({ id: data.id, ok: false, error: error.message })); // Flag write is the transport, GM picks it up in updateActor
+      actor.setFlag(MODULE, "request", data).catch(error => this.receive({ id: data.id, ok: false, error: error.message })); // Flag write is the transport
     });
   }
 
-  static async execute(actor, request, userId) { // GM side, runs one request through quote, plan, prepare, mutate, commit
+  static async execute(actor, request, userId) { // GM side: quote, plan, prepare, mutate, commit
     ReputationStore.requireGM();
     let journal, state;
     try {
       const user = game.users.get(userId);
-      if (!user || !actor.testUserPermission(user, "OWNER") || actor.isToken) throw new Error("The requesting user does not own this world character.");
-      if (typeof request.id !== "string" || !/^[a-zA-Z0-9]{16}$/.test(request.id)) throw new Error("Invalid request identifier.");
+      if (!user || !actor.testUserPermission(user, "OWNER") || actor.isToken) throw new Error("The requesting user does not own this world character."); // non owner or token throws
+      if (typeof request.id !== "string" || !/^[a-zA-Z0-9]{16}$/.test(request.id)) throw new Error("Invalid request identifier."); // malformed request id throws
       state = this.read();
       const previous = state.transactions.find(row => row.id === request.id);
       if (previous) { // Idempotent replay of an already processed id
-        if (previous.actorUuid !== actor.uuid || previous.userId !== userId) throw new Error("Request identity mismatch.");
+        if (previous.actorUuid !== actor.uuid || previous.userId !== userId) throw new Error("Request identity mismatch."); // replay from another actor throws
         await this.respond(actor, { id: request.id, ok: previous.status === "committed", error: previous.error ?? "This request was already processed." });
         return;
       }
 
-      if (!Number.isSafeInteger(request.created) || Math.abs(Date.now() - request.created) > 120000) throw new Error("This request expired. Open the proxy again.");
-      if (!["adjust", "donation"].includes(request.kind)) throw new Error("Unknown reputation request.");
-      if (state.transactions.some(row => ["prepared", "recovery"].includes(row.status))) throw new Error("The GM must recover an interrupted transaction before accepting goods.");
+      if (!Number.isSafeInteger(request.created) || Math.abs(Date.now() - request.created) > 120000) throw new Error("This request expired. Open the proxy again."); // stale or invalid timestamp throws
+      if (!["adjust", "donation"].includes(request.kind)) throw new Error("Unknown reputation request."); // unknown kind throws
+      if (state.transactions.some(row => ["prepared", "recovery"].includes(row.status))) throw new Error("The GM must recover an interrupted transaction before accepting goods."); // open recovery journal blocks goods
       const definitions = ReputationStore.read().reputations, rep = definitions.find(row => row.id === request.reputationId);
-      if (!rep) throw new Error("Reputation no longer exists.");
-      if (request.kind === "adjust" && !user.isGM) throw new Error("Only a GM can adjust standing directly.");
-      if (request.kind !== "adjust" && !rep.proxies.some(proxy => proxy.id === request.proxyId)) throw new Error("That NPC is no longer a proxy.");
+      if (!rep) throw new Error("Reputation no longer exists."); // unknown request reputation throws
+      if (request.kind === "adjust" && !user.isGM) throw new Error("Only a GM can adjust standing directly."); // player adjust throws, GM continues
+      if (request.kind !== "adjust" && !rep.proxies.some(proxy => proxy.id === request.proxyId)) throw new Error("That NPC is no longer a proxy."); // donation via non proxy throws
       const quote = request.kind === "adjust" ? { reputationId: rep.id, units: request.delta, lines: [] } : quoteDonation(rep, request.selection, await this.inventory(actor, rep));
       const planned = planStanding(definitions, state, rep.id, actor.uuid, quote.units), adapter = getAdapter();
       const plan = await adapter.plan(actor, quote, rep, planned.rewards);
       journal = await this.prepare(actor, plan, request.id, userId); // Journal of pre-change values for rollback
-      state.transactions = state.transactions.filter(row => ["prepared", "recovery"].includes(row.status) || Date.now() - row.created < 86400000); // Prune journals over a day old, keep any needing recovery
+      state.transactions = state.transactions.filter(row => ["prepared", "recovery"].includes(row.status) || Date.now() - row.created < 86400000); // Prune day old journals, keep recovery ones
       state.transactions.push(journal);
       await this.save(state);
       this.debug("prepared", { id: request.id, actorUuid: actor.uuid, changes: planned.changes });
@@ -129,7 +129,7 @@ export class Runtime {
         return;
       }
 
-      if (journal) {
+      if (journal) { // journal exists, roll back changes
         try {
           await this.rollback(actor, journal);
           journal.status = "rolled-back";
@@ -152,51 +152,51 @@ export class Runtime {
 
   static async prepare(actor, plan, id, userId) { // Snapshots every path mutate will touch
     const actorBefore = {}, itemsBefore = [], deleted = [];
-    for (const path of Object.keys(plan.actorUpdate)) {
+    for (const path of Object.keys(plan.actorUpdate)) { // In: actor paths, out: before values
       const value = foundry.utils.getProperty(actor.toObject(), path);
-      if (value === undefined) throw new Error(`Currency field is missing: ${path}`);
+      if (value === undefined) throw new Error(`Currency field is missing: ${path}`); // missing currency field throws
       actorBefore[path] = structuredClone(value);
     }
 
-    for (const update of plan.itemUpdates) {
+    for (const update of plan.itemUpdates) { // In: item updates, out: before values
       const item = actor.items.get(update._id);
-      if (!item) throw new Error("An inventory item disappeared.");
+      if (!item) throw new Error("An inventory item disappeared."); // vanished item throws
       const before = { _id: item.id };
-      for (const path of Object.keys(update).filter(key => key !== "_id")) before[path] = structuredClone(foundry.utils.getProperty(item.toObject(), path));
+      for (const path of Object.keys(update).filter(key => key !== "_id")) before[path] = structuredClone(foundry.utils.getProperty(item.toObject(), path)); // In: update paths, out: before values
       itemsBefore.push(before);
     }
 
-    for (const itemId of plan.itemDeletes) {
+    for (const itemId of plan.itemDeletes) { // In: deletes, out: item snapshots
       const item = actor.items.get(itemId);
-      if (!item) throw new Error("A replaced reward item disappeared.");
+      if (!item) throw new Error("A replaced reward item disappeared."); // vanished reward item throws
       deleted.push(item.toObject());
     }
 
-    for (const item of plan.itemCreates) item._id = foundry.utils.randomID(); // Pre-assign ids so rollback can find created rewards
+    for (const item of plan.itemCreates) item._id = foundry.utils.randomID(); // Pre-assign ids for rollback lookup
     return { id, userId, actorUuid: actor.uuid, created: Date.now(), status: "prepared", actorBefore, itemsBefore, deleted, createdIds: plan.itemCreates.map(item => item._id) };
   }
 
   static async mutate(actor, plan) {
-    if (plan.itemUpdates.length) await actor.updateEmbeddedDocuments("Item", plan.itemUpdates);
-    if (Object.keys(plan.actorUpdate).length) await actor.update(plan.actorUpdate);
-    if (plan.itemDeletes.length) await actor.deleteEmbeddedDocuments("Item", plan.itemDeletes);
-    if (plan.itemCreates.length) {
+    if (plan.itemUpdates.length) await actor.updateEmbeddedDocuments("Item", plan.itemUpdates); // item updates applied if any
+    if (Object.keys(plan.actorUpdate).length) await actor.update(plan.actorUpdate); // actor update applied if any
+    if (plan.itemDeletes.length) await actor.deleteEmbeddedDocuments("Item", plan.itemDeletes); // deletes applied if any
+    if (plan.itemCreates.length) { // creates verified after applying
       const created = await actor.createEmbeddedDocuments("Item", plan.itemCreates, { keepId: true });
-      if (created.length !== plan.itemCreates.length || plan.itemCreates.some(item => !actor.items.has(item._id))) throw new Error("The system did not create all tier rewards.");
+      if (created.length !== plan.itemCreates.length || plan.itemCreates.some(item => !actor.items.has(item._id))) throw new Error("The system did not create all tier rewards."); // partial create throws
     }
   }
 
   static async rollback(actor, journal) { // Reverse order of mutate
     const created = journal.createdIds.filter(id => actor.items.has(id)), deleted = journal.deleted.filter(item => !actor.items.has(item._id));
-    if (created.length) await actor.deleteEmbeddedDocuments("Item", created);
-    if (deleted.length) await actor.createEmbeddedDocuments("Item", deleted, { keepId: true });
-    if (journal.itemsBefore.length) await actor.updateEmbeddedDocuments("Item", journal.itemsBefore);
-    if (Object.keys(journal.actorBefore).length) await actor.update(journal.actorBefore);
+    if (created.length) await actor.deleteEmbeddedDocuments("Item", created); // rollback deletes created rewards
+    if (deleted.length) await actor.createEmbeddedDocuments("Item", deleted, { keepId: true }); // rollback restores deleted items
+    if (journal.itemsBefore.length) await actor.updateEmbeddedDocuments("Item", journal.itemsBefore); // rollback restores item values
+    if (Object.keys(journal.actorBefore).length) await actor.update(journal.actorBefore); // rollback restores actor values
     this.debug("rolled-back", { id: journal.id });
   }
 
   static async respond(actor, response) {
-    this.receive(response); // GM's own pending resolves here, players via the flag
+    this.receive(response); // GM resolves here, players via flag
     await actor.setFlag(MODULE, "response", response);
   }
 
@@ -204,9 +204,9 @@ export class Runtime {
     return this.enqueue(async () => {
       ReputationStore.requireGM();
       const state = this.read(), journal = state.transactions.find(row => row.id === id && ["prepared", "recovery"].includes(row.status));
-      if (!journal) throw new Error("That transaction does not need recovery.");
+      if (!journal) throw new Error("That transaction does not need recovery."); // no pending journal throws
       const actor = await fromUuid(journal.actorUuid);
-      if (!actor) throw new Error("The transaction's character is missing.");
+      if (!actor) throw new Error("The transaction's character is missing."); // missing actor throws
       await this.rollback(actor, journal);
       journal.status = "rolled-back";
       journal.error = "The GM restored this interrupted transaction.";
@@ -216,10 +216,10 @@ export class Runtime {
   }
 
   static async installLedger(actor) {
-    if (!actor?.testUserPermission(game.user, "OWNER")) throw new Error("Choose a character you own.");
+    if (!actor?.testUserPermission(game.user, "OWNER")) throw new Error("Choose a character you own."); // non owner throws
     const existing = actor.items.find(item => item.getFlag(MODULE, "ledger"));
-    if (existing) {
-      if (game.system.id === "pf1" && existing.type === "feat" && existing.system.subType !== "trait") await existing.update({ "system.subType": "trait" }); // Repairs a ledger feat knocked off the trait subtype
+    if (existing) { // existing ledger returns, else creates
+      if (game.system.id === "pf1" && existing.type === "feat" && existing.system.subType !== "trait") await existing.update({ "system.subType": "trait" }); // Repair ledger feat trait subtype
       return existing;
     }
     const data = await getAdapter().ledgerData(actor);
